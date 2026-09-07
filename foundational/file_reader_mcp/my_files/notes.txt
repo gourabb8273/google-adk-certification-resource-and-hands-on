@@ -1,0 +1,2 @@
+ADK can read files via MCP tools.
+Try asking the agent to list this directory and read hello.txt.

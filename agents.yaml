@@ -1,0 +1,232 @@
+# Source of truth for agent catalog docs.
+# Update this file when adding a new agent, then run:
+#   python scripts/sync_adk_agent_docs.py
+
+tracks:
+  foundational:
+    label: Foundational (single-agent)
+    dir: foundational
+    path_id: "3545"
+    title: Develop Agents with Agent Development Kit (ADK)
+    path_url: https://www.skills.google/paths/3545
+    badge_name: Engineer AI Agents with Agent Development Kit (ADK)
+    badge_url: https://www.credly.com/badges/14b4692b-b475-4b7f-adab-2b4ca2d532c2
+    summary: >-
+      Single LlmAgent concepts — setup, instructions, session state,
+      tools, and MCP integration.
+
+  multi_agent:
+    label: Multi-agent
+    dir: multi_agent
+    path_id: "3877"
+    title: Multi-Agent ADK
+    path_url: https://www.skills.google/paths/3877
+    summary: >-
+      Orchestration patterns — sub-agents, pipelines, and coordinated
+      multi-agent workflows.
+
+agents:
+  - track: foundational
+    folder: simple_agent_module1
+    name: math_tutor
+    module: "Module 1–3"
+    topic: Simple agent & programmatic runner
+    learned:
+      - Basic LlmAgent / Agent setup with gemini-3.6-flash
+      - Agent folder naming (underscores, valid Python identifiers)
+      - Running via adk run, adk api_server, and curl /run
+      - Programmatic Runner + InMemorySessionService
+      - load_dotenv and session state from environment variables
+    run: python foundational/simple_agent_module1/agent.py
+    env_template: vertexai
+
+  - track: foundational
+    folder: agent_with_yaml
+    name: root_agent
+    module: "Module — YAML"
+    topic: Declarative agent configuration
+    learned:
+      - Define agents in root_agent.yaml instead of agent.py
+      - Instruction, model, and metadata without Python code
+      - Same adk web / adk run workflow as code-based agents
+    run: adk run foundational.agent_with_yaml
+    env_template: enterprise
+
+  - track: foundational
+    folder: customer_support_agent
+    name: support_specialist
+    module: "Module — Instructions"
+    topic: Optimized instruction design
+    learned:
+      - Structured prompts (identity, mission, methodology, boundaries)
+      - Persona and tone control for production-style agents
+      - load_dotenv for API credentials
+    run: adk run foundational.customer_support_agent
+    env_template: enterprise
+
+  - track: foundational
+    folder: product_extractor
+    name: product_extractor
+    module: "Module — Structured output"
+    topic: Pydantic output_schema & output_key
+    learned:
+      - Pydantic models to enforce JSON response shape
+      - output_schema validates model output automatically
+      - output_key stores parsed result in session state for reuse
+    run: adk run foundational.product_extractor
+    env_template: enterprise
+
+  - track: foundational
+    folder: model_comparison
+    name: data_extractor / creative_brainstormer
+    module: "Module — Model config"
+    topic: generate_content_config tuning
+    learned:
+      - temperature, top_p, top_k for factual vs creative behavior
+      - max_output_tokens and multi-agent comparison patterns
+      - safety_settings (HarmCategory, HarmBlockThreshold)
+    run: adk run foundational.model_comparison
+    env_template: enterprise
+
+  - track: foundational
+    folder: problem_solver_reasoning_agent
+    name: strategic_problem_solver
+    module: "Module — Planning"
+    topic: BuiltInPlanner & thinking
+    learned:
+      - BuiltInPlanner with ThinkingConfig for Gemini models
+      - include_thoughts and thinking_budget for visible reasoning
+      - When to use BuiltInPlanner vs PlanReActPlanner
+    run: adk run foundational.problem_solver_reasoning_agent
+    env_template: enterprise
+
+  - track: foundational
+    folder: name_extractor_memory
+    name: name_extractor
+    module: "Module — Session state"
+    topic: output_key & session memory
+    learned:
+      - output_key saves agent response to session.state automatically
+      - Access state programmatically via session.state.get("user_name")
+      - State persists across multiple turns in the same session
+      - Programmatic testing with Runner and InMemorySessionService
+    run: python foundational/name_extractor_memory/test_state.py
+    env_template: enterprise
+
+  - track: foundational
+    folder: personalized_greeter
+    name: personalized_greeter
+    module: "Module — State templating"
+    topic: "{key} instruction templating"
+    learned:
+      - Inject session.state into instructions with {key} syntax
+      - Optional defaults with {key?default} and conditional blocks
+      - ADK resolves templates before sending instructions to the LLM
+      - Instructions adapt dynamically based on available state
+    run: python foundational/personalized_greeter/test_templating.py
+    env_template: enterprise
+
+  - track: foundational
+    folder: namespace_demo
+    name: namespace_demo
+    module: "Module — State namespaces"
+    topic: temp / session / user / app scopes
+    learned:
+      - Four state namespaces with different persistence lifetimes
+      - temp: current turn only, session (no prefix) per conversation
+      - user: persists across sessions for same user
+      - app: global config shared by all users
+    run: python foundational/namespace_demo/test_namespaces.py
+    env_template: enterprise
+
+  - track: foundational
+    folder: geography_assistant
+    name: geography_assistant
+    module: "Module — Tools"
+    topic: Function tools + Google Search
+    learned:
+      - Custom function tools with Python functions and docstrings
+      - Built-in google_search tool for live web facts
+      - google_search cannot mix with function tools on one agent without bypass_multi_tools_limit
+      - ADK wraps Google Search as a sub-agent when combined with custom tools
+    run: python foundational/geography_assistant/test_tools.py
+    env_template: enterprise
+
+  - track: foundational
+    folder: file_reader_mcp
+    name: file_reader_assistant
+    module: "Module — MCP tools"
+    topic: McpToolset + filesystem server
+    learned:
+      - Connect to MCP servers via McpToolset (stdio or SSE)
+      - Browse MCP catalog at registry.modelcontextprotocol.io
+      - StdioConnectionParams — local subprocess (development, e.g. npx)
+      - SseConnectionParams — remote HTTP/SSE (production)
+      - tool_filter limits exposed tools to safe read-only operations
+      - Requires Node.js/npm and pip install 'mcp>=1.0,<2' (MCP SDK)
+    run: python foundational/file_reader_mcp/test_mcp.py
+    env_template: enterprise
+
+mcp_info:
+  registry: https://registry.modelcontextprotocol.io
+  connection_types:
+    - name: StdioConnectionParams
+      use: Local servers via subprocess (development)
+    - name: SseConnectionParams
+      use: Remote servers via HTTP (production)
+
+tool_types:
+  - type: Built-in
+    complexity: Low
+    setup: Import and use
+    use_when: "Common capabilities (search, code execution, RAG)"
+    example: google_search
+  - type: Function Tools
+    complexity: Medium
+    setup: Write Python function
+    use_when: Custom business logic
+    example: get_capital_city
+  - type: Agent-as-Tool
+    complexity: Medium-High
+    setup: Specialized sub-agent
+    use_when: Specialized reasoning (e.g. Google Search + other tools)
+    example: GoogleSearchAgentTool
+
+module_recap:
+  track: foundational
+  title: "Modules 1–2 Recap"
+  summary: "Session state is a dictionary. output_key writes agent output to state. {key} templating reads state into instructions."
+  question: "How long does state persist?"
+  answer: "State namespaces control persistence scope — not all state should live forever."
+
+state_namespaces:
+  track: foundational
+  namespaces:
+    - prefix: "temp:"
+      lifetime: Current turn only
+      scope: Discarded after invocation
+      example: "temp:step = validating"
+    - prefix: "(none)"
+      lifetime: Current session
+      scope: Lost when session ends
+      example: "topic = refunds"
+    - prefix: "user:"
+      lifetime: All sessions for user
+      scope: Persists across conversations
+      example: "user:theme = dark"
+    - prefix: "app:"
+      lifetime: Global for app
+      scope: All users and sessions
+      example: "app:version = 2.0"
+
+env_templates:
+  enterprise:
+    GOOGLE_GENAI_USE_ENTERPRISE: "0"
+    GOOGLE_API_KEY: your-google-api-key-here
+  vertexai:
+    GOOGLE_GENAI_USE_VERTEXAI: "0"
+    GOOGLE_API_KEY: your-google-api-key-here
+
+gitignore_lines:
+  - .env
+  - .adk/

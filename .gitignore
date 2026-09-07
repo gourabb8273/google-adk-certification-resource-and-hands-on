@@ -1,0 +1,16 @@
+# Environment secrets (use .env.example as a template)
+.env
+**/.env
+
+# Virtual environment
+.venv/
+
+# ADK local storage
+.adk/
+**/.adk/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/

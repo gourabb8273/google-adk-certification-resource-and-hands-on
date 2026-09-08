@@ -1140,7 +1140,7 @@ Fully managed, ADK-native — simplest path for Python agents
 - **Session:** VertexAiSessionService (automatic)
 
 ```bash
-adk deploy agent-engine --project=PROJECT --region=us-central1 --staging_bucket=gs://BUCKET --display_name="My Agent" /path/to/agent
+adk deploy agent_engine --project=PROJECT --region=us-central1 --staging_bucket=gs://BUCKET --display_name="My Agent" /path/to/agent
 ```
 
 **Best for:**
@@ -1207,13 +1207,13 @@ Deploy to Google Cloud — prerequisites and commands in the section above. Per-
   - Test locally: `adk run deployment/weather_agent`
   - Prerequisite: `pip install 'google-cloud-aiplatform[adk,agent_engines]>=1.111'`
   - **Create GCS staging bucket (one-time):** `gsutil mb -p $GOOGLE_CLOUD_PROJECT -l us-central1 gs://$BUCKET_NAME`
-  - **Deploy to Agent Engine:** `adk deploy agent-engine --project=$GOOGLE_CLOUD_PROJECT --region=us-central1 --staging_bucket=gs://$BUCKET_NAME --display_name="Weather Agent" deployment/weather_agent`
+  - **Deploy to Agent Engine:** `adk deploy agent_engine --project=$GOOGLE_CLOUD_PROJECT --region=us-central1 --staging_bucket=gs://$BUCKET_NAME --display_name="Weather Agent" deployment/weather_agent`
   - **Test deployed agent:** `python deployment/weather_agent/test_deployed_agent.py`
 - **Try asking:**
   - "What's the weather in San Francisco?"
   - "Will it rain tomorrow in Seattle?"
 - **What we learned:**
-  - adk deploy agent-engine packages and deploys with one command (~5–10 min)
+  - adk deploy agent_engine packages and deploys with one command (~5–10 min)
   - VertexAiSessionService is configured automatically — no code changes needed
   - Agent Engine is Python-only; use Cloud Run for Go/Java or --with_ui
   - Local dev uses InMemorySessionService; cloud uses persistent VertexAiSessionService

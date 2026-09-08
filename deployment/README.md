@@ -20,7 +20,7 @@ export GOOGLE_CLOUD_PROJECT=your-project-id
 export BUCKET_NAME=adk-staging-$(date +%s)
 gsutil mb -p $GOOGLE_CLOUD_PROJECT -l us-central1 gs://$BUCKET_NAME
 
-adk deploy agent-engine \
+adk deploy agent_engine \
   --project=$GOOGLE_CLOUD_PROJECT \
   --region=us-central1 \
   --staging_bucket=gs://$BUCKET_NAME \

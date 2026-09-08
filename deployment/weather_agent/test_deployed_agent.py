@@ -2,7 +2,7 @@
 Test a deployed weather agent on Vertex AI Agent Engine.
 
 Before running:
-1. Deploy with adk deploy agent-engine (see README)
+1. Deploy with adk deploy agent_engine (see README)
 2. Set REASONING_ENGINE_RESOURCE in .env to your resource name, e.g.:
    projects/PROJECT/locations/us-central1/reasoningEngines/123456789
 

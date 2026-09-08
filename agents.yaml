@@ -428,7 +428,7 @@ agents:
     module: "Hands-on — Agent Engine"
     topic: Deploy a simple agent to Vertex AI Agent Engine
     learned:
-      - adk deploy agent-engine packages and deploys with one command (~5–10 min)
+      - adk deploy agent_engine packages and deploys with one command (~5–10 min)
       - VertexAiSessionService is configured automatically — no code changes needed
       - Agent Engine is Python-only; use Cloud Run for Go/Java or --with_ui
       - Local dev uses InMemorySessionService; cloud uses persistent VertexAiSessionService
@@ -440,7 +440,7 @@ agents:
         command: gsutil mb -p $GOOGLE_CLOUD_PROJECT -l us-central1 gs://$BUCKET_NAME
       - label: Deploy to Agent Engine
         command: >-
-          adk deploy agent-engine --project=$GOOGLE_CLOUD_PROJECT
+          adk deploy agent_engine --project=$GOOGLE_CLOUD_PROJECT
           --region=us-central1 --staging_bucket=gs://$BUCKET_NAME
           --display_name="Weather Agent" deployment/weather_agent
       - label: Test deployed agent
@@ -1023,7 +1023,7 @@ deployment:
       languages: Python only
       session_service: VertexAiSessionService (automatic)
       command: >-
-        adk deploy agent-engine --project=PROJECT --region=us-central1
+        adk deploy agent_engine --project=PROJECT --region=us-central1
         --staging_bucket=gs://BUCKET --display_name="My Agent" /path/to/agent
       best_for:
         - Standard ADK Python agents

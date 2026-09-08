@@ -2,7 +2,7 @@
 Simple Weather Agent — Agent Engine deployment hands-on
 
 Deploy:
-  adk deploy agent-engine \\
+  adk deploy agent_engine \\
     --project=$GOOGLE_CLOUD_PROJECT \\
     --region=us-central1 \\
     --staging_bucket=gs://$BUCKET_NAME \\

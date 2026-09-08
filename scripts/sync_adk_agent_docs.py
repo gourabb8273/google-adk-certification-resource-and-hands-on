@@ -695,34 +695,63 @@ def render_deployment_docs(deploy: dict) -> list[str]:
 
 
 def render_film_concept_workflow_docs(film: dict) -> list[str]:
+    arch_note = film.get("architecture_note", "")
     lines = [
         f"### {film['title']}",
         "",
         film["description"],
         "",
-        "**Course architecture (full):**",
-        "",
-        "```mermaid",
-        "flowchart LR",
-        "    GREETER[greeter] --> TEAM[film_concept_team]",
-        "    subgraph TEAM[SequentialAgent]",
-        "        subgraph LOOP[writers_room LoopAgent]",
-        "            R[researcher] --> SW[screenwriter] --> C[critic]",
-        "            C -.->|iterate| R",
-        "        end",
-        "        LOOP --> PAR[preproduction_team ParallelAgent]",
-        "        PAR --> FW[file_writer]",
-        "    end",
-        "```",
-        "",
-        f"**This demo:** `multi_agent/{film.get('folder', 'film_concept_team')}/` — "
-        "greeter → researcher → screenwriter → file_writer (sequential only).",
-        "",
-        "**State via tools (`tool_context.state`):**",
-        "",
-        "| State key | Written by | Read by |",
-        "|-----------|------------|---------|",
     ]
+    if arch_note:
+        lines.extend([arch_note, ""])
+
+    lines.extend(
+        [
+            "**Architecture:**",
+            "",
+            "```mermaid",
+            "flowchart TB",
+            "    USER[User: Ada Lovelace] --> GREETER[greeter]",
+            "    GREETER --> TEAM[film_concept_team SequentialAgent]",
+            "    subgraph TEAM",
+            "        subgraph LOOP[writers_room LoopAgent]",
+            "            R[researcher] --> SW[screenwriter] --> C[critic]",
+            "            C -.->|CRITICAL_FEEDBACK| R",
+            "            C -.->|exit_loop| FW",
+            "            R -.-> WIKI[wikipedia tool]",
+            "        end",
+            "        FW[file_writer]",
+            "    end",
+            "    LOOP --> FW",
+            "```",
+            "",
+            "**Loop iteration (sequential each pass):**",
+            "",
+        ]
+    )
+    for step in film.get("loop_flow", []):
+        lines.append(f"- {step}")
+
+    steps = film.get("steps", [])
+    if steps:
+        lines.extend(["", "**Agents:**", ""])
+        for step in steps:
+            status = step.get("status", "implemented")
+            tag = " *(course extension)*" if status == "course_only" else ""
+            lines.append(f"- `{step['agent']}` — {step['note']}{tag}")
+
+    folder = film.get("folder", "film_concept_team")
+    lines.extend(
+        [
+            "",
+            f"Demo: `multi_agent/{folder}/`",
+            "",
+            "**State via tools (`tool_context.state`):**",
+            "",
+            "| State key | Written by | Read by |",
+            "|-----------|------------|---------|",
+        ]
+    )
     for row in film.get("state_keys", []):
         lines.append(
             f"| `{row['key']}` | {row['writer']} | {row['readers']} |"
@@ -735,13 +764,20 @@ def render_film_concept_workflow_docs(film: dict) -> list[str]:
                 "",
                 f"- **Write:** `{pattern.get('write', '')}`",
                 f"- **Read:** `{pattern.get('read', '')}`",
-                f"- {pattern.get('note', '')}",
             ]
         )
+        if pattern.get("exit"):
+            lines.append(f"- **Exit loop:** `{pattern.get('exit', '')}`")
+        if pattern.get("note"):
+            lines.append(f"- {pattern.get('note', '')}")
 
     output = film.get("output")
     if output:
         lines.append(f"\n**Output:** `{output}`")
+
+    ref = film.get("reference")
+    if ref:
+        lines.append(f"\n[ADK LoopAgent docs]({ref})")
 
     lines.extend(["", "**Test scenario:**", ""])
     for scenario in film.get("test_scenarios", []):

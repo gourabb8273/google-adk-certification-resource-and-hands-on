@@ -497,41 +497,62 @@ Folder: `multi_agent/customer_service_app_multi_agent/` — `adk run multi_agent
 3. Technical researcher investigates the login issue
 4. Response agent addresses both issues
 
-### Film concept team — workflow + tool state
+### Film concept team — LoopAgent writers room
 
-Capstone-style workflow: greeter collects a historical figure, then a SequentialAgent pipeline researches (Wikipedia), writes a plot outline, and saves a pitch file. State flows through tool_context.state and {key?}.
+Greeter collects a historical figure, then film_concept_team runs a writers_room LoopAgent (research → write → critique) until the critic exits the loop, then file_writer saves the pitch. State flows through tool_context.state and {key?} templating.
 
-**Course architecture (full):**
+The user provides minimal input (e.g. "Ada Lovelace"), then the agent workflow takes over. Loop sub-agents run sequentially each iteration; the critic decides whether to iterate or exit.
+
+**Architecture:**
 
 ```mermaid
-flowchart LR
-    GREETER[greeter] --> TEAM[film_concept_team]
-    subgraph TEAM[SequentialAgent]
+flowchart TB
+    USER[User: Ada Lovelace] --> GREETER[greeter]
+    GREETER --> TEAM[film_concept_team SequentialAgent]
+    subgraph TEAM
         subgraph LOOP[writers_room LoopAgent]
             R[researcher] --> SW[screenwriter] --> C[critic]
-            C -.->|iterate| R
+            C -.->|CRITICAL_FEEDBACK| R
+            C -.->|exit_loop| FW
+            R -.-> WIKI[wikipedia tool]
         end
-        LOOP --> PAR[preproduction_team ParallelAgent]
-        PAR --> FW[file_writer]
+        FW[file_writer]
     end
+    LOOP --> FW
 ```
 
-**This demo:** `multi_agent/film_concept_team/` — greeter → researcher → screenwriter → file_writer (sequential only).
+**Loop iteration (sequential each pass):**
+
+- researcher — Wikipedia research → append_to_state research
+- screenwriter — draft/improve PLOT_OUTLINE using research and feedback
+- critic — exit_loop if good, else CRITICAL_FEEDBACK → next iteration
+
+**Agents:**
+
+- `greeter` — Ask for historical subject; save PROMPT; delegate to film_concept_team
+- `writers_room (LoopAgent)` — researcher → screenwriter → critic (iterate or exit_loop)
+- `file_writer` — Title the movie and write pitch to movie_pitches/
+- `preproduction_team (ParallelAgent)` — box_office_researcher + casting_agent — course extension *(course extension)*
+
+Demo: `multi_agent/film_concept_team/`
 
 **State via tools (`tool_context.state`):**
 
 | State key | Written by | Read by |
 |-----------|------------|---------|
 | `PROMPT` | greeter (append_to_state) | researcher, screenwriter |
-| `research` | researcher (append_to_state + Wikipedia) | screenwriter |
-| `PLOT_OUTLINE` | screenwriter (append_to_state) | file_writer |
-| `CRITICAL_FEEDBACK` | critic (course loop — not in this demo) | researcher, screenwriter |
+| `research` | researcher (append_to_state + Wikipedia) | screenwriter, critic |
+| `PLOT_OUTLINE` | screenwriter (append_to_state) | critic, file_writer |
+| `CRITICAL_FEEDBACK` | critic (append_to_state) | researcher, screenwriter |
 
 - **Write:** `tool_context.state[field] = existing + [response]`
 - **Read:** `{field?} in agent instruction`
-- Tools and agents share the same session state. append_to_state appends to list-valued keys so each pass adds context without overwriting.
+- **Exit loop:** `exit_loop tool — critic ends the LoopAgent when outline is ready`
+- Tools and agents share the same session state. Each loop iteration runs researcher → screenwriter → critic in order until exit_loop or max_iterations.
 
 **Output:** `movie_pitches/*.txt`
+
+[ADK LoopAgent docs](https://google.github.io/adk-docs/agents/workflow-agents/loop-agents/)
 
 **Test scenario:**
 
@@ -540,9 +561,9 @@ flowchart LR
 > Ada Lovelace
 
 1. Greeter saves PROMPT and delegates to film_concept_team
-2. Researcher gathers Wikipedia facts into research
-3. Screenwriter writes PLOT_OUTLINE
-4. File writer saves a pitch txt under movie_pitches/
+2. writers_room loop — researcher, screenwriter, critic run (may repeat)
+3. Critic exits loop when outline meets quality bar
+4. file_writer saves pitch txt under movie_pitches/
 
 ### State namespaces in multi-agent workflows
 
@@ -845,7 +866,7 @@ Browse every agent in the web UI from the repo root: `adk web .` (select e.g. `m
   - Editor reads {draft_article} and returns the polished final version
   - All agents in the pipeline share the same session state
 
-#### `multi_agent/film_concept_team` — Film pitch pipeline — greeter → research → write → file
+#### `multi_agent/film_concept_team` — Film pitch — greeter → writers_room loop → file_writer
 
 - **Module:** Module — Workflow capstone
 - **Agent name:** `greeter`
@@ -857,11 +878,11 @@ Browse every agent in the web UI from the repo root: `adk web .` (select e.g. `m
   - "Ada Lovelace"
   - "Marie Curie"
 - **What we learned:**
-  - SequentialAgent runs researcher → screenwriter → file_writer in fixed order
-  - tool_context.state in tools writes shared session state (PROMPT, research, PLOT_OUTLINE)
-  - Agents read state via {PROMPT?}, {research?}, {PLOT_OUTLINE?} templating
-  - LangchainTool wraps Wikipedia for the researcher agent
-  - Full course adds LoopAgent (critic loop) + ParallelAgent (pre-production)
+  - LoopAgent runs researcher → screenwriter → critic each iteration (sequential)
+  - critic calls exit_loop when outline is good, or writes CRITICAL_FEEDBACK to iterate
+  - SequentialAgent runs writers_room loop first, then file_writer after loop exits
+  - tool_context.state shares PROMPT, research, PLOT_OUTLINE, CRITICAL_FEEDBACK
+  - LangchainTool wraps Wikipedia; max_iterations=5 prevents infinite loops
 
 #### `multi_agent/customer_service_app_multi_agent` — Customer service app — intake → parallel → respond
 

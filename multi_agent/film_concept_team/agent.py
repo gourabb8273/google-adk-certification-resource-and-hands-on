@@ -1,28 +1,25 @@
 """
 Film Concept Team — workflow agents + tool_context.state
 
-Architecture (course):
+Architecture:
   greeter → film_concept_team (SequentialAgent)
     → writers_room (LoopAgent: researcher → screenwriter → critic)
-    → preproduction_team (ParallelAgent: box office + casting)
     → file_writer
 
-This demo implements the core sequential pipeline:
-  greeter → researcher → screenwriter → file_writer
+The critic uses exit_loop when the outline is good, or append_to_state for
+CRITICAL_FEEDBACK to drive another research/write iteration (max 5).
 
-State is shared via tool_context.state in custom tools and {key?} templating.
-
-Reference: https://google.github.io/adk-docs/agents/workflow-agents/
+Reference: https://google.github.io/adk-docs/agents/workflow-agents/loop-agents/
 """
 
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from google.adk.agents import LlmAgent, SequentialAgent
+from google.adk.agents import LlmAgent, LoopAgent, SequentialAgent
+from google.adk.tools import exit_loop
 from google.adk.tools.langchain_tool import LangchainTool
 from google.adk.tools.tool_context import ToolContext
 from google.genai import types
@@ -148,10 +145,45 @@ INSTRUCTIONS:
     tools=[wikipedia_tool, append_to_state],
 )
 
+critic = LlmAgent(
+    model=MODEL,
+    name="critic",
+    description="Reviews the outline so that it can be improved.",
+    instruction="""
+INSTRUCTIONS:
+Consider these questions about the PLOT_OUTLINE:
+- Does it meet a satisfying three-act cinematic structure?
+- Do the characters' struggles seem engaging?
+- Does it feel grounded in a real time period in history?
+- Does it sufficiently incorporate historical details from the RESEARCH?
+
+If the PLOT_OUTLINE does a good job with these questions, exit the writing loop
+with your exit_loop tool.
+If significant improvements can be made, use append_to_state to add your feedback
+to the field 'CRITICAL_FEEDBACK'.
+Explain your decision and briefly summarize the feedback you have provided.
+
+PLOT_OUTLINE:
+{PLOT_OUTLINE?}
+
+RESEARCH:
+{research?}
+""",
+    generate_content_config=types.GenerateContentConfig(temperature=0),
+    tools=[append_to_state, exit_loop],
+)
+
+writers_room = LoopAgent(
+    name="writers_room",
+    description="Iterates through research and writing to improve a movie plot outline.",
+    sub_agents=[researcher, screenwriter, critic],
+    max_iterations=5,
+)
+
 film_concept_team = SequentialAgent(
     name="film_concept_team",
-    description="Research, write a plot outline, and save a pitch file.",
-    sub_agents=[researcher, screenwriter, file_writer],
+    description="Write a film plot outline and save it as a text file.",
+    sub_agents=[writers_room, file_writer],
 )
 
 root_agent = LlmAgent(

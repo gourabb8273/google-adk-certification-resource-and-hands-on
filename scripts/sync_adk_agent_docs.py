@@ -402,6 +402,10 @@ def render_multi_agent_reference(manifest: dict) -> list[str]:
     if capstone:
         lines.extend(render_customer_service_app_docs(capstone))
 
+    film = manifest.get("film_concept_workflow")
+    if film:
+        lines.extend(render_film_concept_workflow_docs(film))
+
     ns_workflow = manifest.get("state_namespaces_workflow")
     if ns_workflow:
         lines.extend(render_state_namespaces_workflow_docs(ns_workflow))
@@ -690,6 +694,67 @@ def render_deployment_docs(deploy: dict) -> list[str]:
     return lines
 
 
+def render_film_concept_workflow_docs(film: dict) -> list[str]:
+    lines = [
+        f"### {film['title']}",
+        "",
+        film["description"],
+        "",
+        "**Course architecture (full):**",
+        "",
+        "```mermaid",
+        "flowchart LR",
+        "    GREETER[greeter] --> TEAM[film_concept_team]",
+        "    subgraph TEAM[SequentialAgent]",
+        "        subgraph LOOP[writers_room LoopAgent]",
+        "            R[researcher] --> SW[screenwriter] --> C[critic]",
+        "            C -.->|iterate| R",
+        "        end",
+        "        LOOP --> PAR[preproduction_team ParallelAgent]",
+        "        PAR --> FW[file_writer]",
+        "    end",
+        "```",
+        "",
+        f"**This demo:** `multi_agent/{film.get('folder', 'film_concept_team')}/` — "
+        "greeter → researcher → screenwriter → file_writer (sequential only).",
+        "",
+        "**State via tools (`tool_context.state`):**",
+        "",
+        "| State key | Written by | Read by |",
+        "|-----------|------------|---------|",
+    ]
+    for row in film.get("state_keys", []):
+        lines.append(
+            f"| `{row['key']}` | {row['writer']} | {row['readers']} |"
+        )
+
+    pattern = film.get("tool_state_pattern", {})
+    if pattern:
+        lines.extend(
+            [
+                "",
+                f"- **Write:** `{pattern.get('write', '')}`",
+                f"- **Read:** `{pattern.get('read', '')}`",
+                f"- {pattern.get('note', '')}",
+            ]
+        )
+
+    output = film.get("output")
+    if output:
+        lines.append(f"\n**Output:** `{output}`")
+
+    lines.extend(["", "**Test scenario:**", ""])
+    for scenario in film.get("test_scenarios", []):
+        lines.append(f"#### {scenario['name']}")
+        lines.append("")
+        lines.append(f"> {scenario['query']}")
+        lines.append("")
+        for i, step in enumerate(scenario.get("expected", []), 1):
+            lines.append(f"{i}. {step}")
+        lines.append("")
+    return lines
+
+
 def render_customer_service_app_docs(capstone: dict) -> list[str]:
     lines = [
         f"### Capstone: {capstone['title']}",
@@ -859,6 +924,7 @@ def render_readme(manifest: dict) -> str:
             "│   ├── customer_service/",
             "│   ├── sequential_pipeline/",
             "│   ├── ...",
+            "│   ├── film_concept_team/       # workflow + tool state",
             "│   └── customer_service_app_multi_agent/  # capstone",
             "└── deployment/                # GCP deploy (Agent Engine, Cloud Run)",
             "    └── weather_agent/           # hands-on deploy",

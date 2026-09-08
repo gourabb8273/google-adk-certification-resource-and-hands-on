@@ -194,6 +194,24 @@ agents:
       - "Write an article about the future of electric vehicles"
 
   - track: multi_agent
+    folder: film_concept_team
+    name: greeter
+    module: "Module — Workflow capstone"
+    topic: Film pitch pipeline — greeter → research → write → file
+    learned:
+      - SequentialAgent runs researcher → screenwriter → file_writer in fixed order
+      - tool_context.state in tools writes shared session state (PROMPT, research, PLOT_OUTLINE)
+      - Agents read state via {PROMPT?}, {research?}, {PLOT_OUTLINE?} templating
+      - LangchainTool wraps Wikipedia for the researcher agent
+      - Full course adds LoopAgent (critic loop) + ParallelAgent (pre-production)
+    run: adk run multi_agent/film_concept_team
+    env_template: enterprise
+    install_extra: "pip install langchain-core langchain-community wikipedia"
+    try_queries:
+      - "Ada Lovelace"
+      - "Marie Curie"
+
+  - track: multi_agent
     folder: customer_service_app_multi_agent
     name: customer_service_app_multi_agent
     module: "Module — Capstone"
@@ -632,6 +650,62 @@ agent_communication:
       use_when: Explicit control, specialized subtasks
       demo: foundational/geography_assistant
 
+film_concept_workflow:
+  title: Film concept team — workflow + tool state
+  folder: film_concept_team
+  description: >-
+    Capstone-style workflow: greeter collects a historical figure, then a
+    SequentialAgent pipeline researches (Wikipedia), writes a plot outline,
+    and saves a pitch file. State flows through tool_context.state and {key?}.
+  course_architecture:
+    intro: >-
+      The full course diagram adds a writing loop and parallel pre-production.
+      This repo demo implements the core sequential pipeline.
+    steps:
+      - id: greeter
+        agent: greeter
+        note: Ask for historical subject; save PROMPT to state; delegate
+      - id: writers_room
+        agent: writers_room (LoopAgent)
+        note: "researcher → screenwriter → critic (iterate or exit)"
+        status: course_only
+      - id: preproduction
+        agent: preproduction_team (ParallelAgent)
+        note: box_office_researcher + casting_agent run concurrently
+        status: course_only
+      - id: pipeline
+        agent: film_concept_team (SequentialAgent)
+        note: researcher → screenwriter → file_writer (implemented here)
+        status: implemented
+  state_keys:
+    - key: PROMPT
+      writer: greeter (append_to_state)
+      readers: researcher, screenwriter
+    - key: research
+      writer: researcher (append_to_state + Wikipedia)
+      readers: screenwriter
+    - key: PLOT_OUTLINE
+      writer: screenwriter (append_to_state)
+      readers: file_writer
+    - key: CRITICAL_FEEDBACK
+      writer: critic (course loop — not in this demo)
+      readers: researcher, screenwriter
+  tool_state_pattern:
+    write: "tool_context.state[field] = existing + [response]"
+    read: "{field?} in agent instruction"
+    note: >-
+      Tools and agents share the same session state. append_to_state appends
+      to list-valued keys so each pass adds context without overwriting.
+  output: movie_pitches/*.txt
+  test_scenarios:
+    - name: "Ada Lovelace biopic"
+      query: Ada Lovelace
+      expected:
+        - Greeter saves PROMPT and delegates to film_concept_team
+        - Researcher gathers Wikipedia facts into research
+        - Screenwriter writes PLOT_OUTLINE
+        - File writer saves a pitch txt under movie_pitches/
+
 customer_service_app_multi_agent:
   title: Customer Service Multi-Agent App
   folder: customer_service_app_multi_agent
@@ -881,3 +955,4 @@ env_templates:
 gitignore_lines:
   - .env
   - .adk/
+  - movie_pitches/

@@ -50,6 +50,7 @@ google-adk-certification-resource-and-hands-on/
 │   ├── customer_service/
 │   ├── sequential_pipeline/
 │   ├── ...
+│   ├── film_concept_team/       # workflow + tool state
 │   └── customer_service_app_multi_agent/  # capstone
 └── deployment/                # GCP deploy (Agent Engine, Cloud Run)
     └── weather_agent/           # hands-on deploy
@@ -496,6 +497,53 @@ Folder: `multi_agent/customer_service_app_multi_agent/` — `adk run multi_agent
 3. Technical researcher investigates the login issue
 4. Response agent addresses both issues
 
+### Film concept team — workflow + tool state
+
+Capstone-style workflow: greeter collects a historical figure, then a SequentialAgent pipeline researches (Wikipedia), writes a plot outline, and saves a pitch file. State flows through tool_context.state and {key?}.
+
+**Course architecture (full):**
+
+```mermaid
+flowchart LR
+    GREETER[greeter] --> TEAM[film_concept_team]
+    subgraph TEAM[SequentialAgent]
+        subgraph LOOP[writers_room LoopAgent]
+            R[researcher] --> SW[screenwriter] --> C[critic]
+            C -.->|iterate| R
+        end
+        LOOP --> PAR[preproduction_team ParallelAgent]
+        PAR --> FW[file_writer]
+    end
+```
+
+**This demo:** `multi_agent/film_concept_team/` — greeter → researcher → screenwriter → file_writer (sequential only).
+
+**State via tools (`tool_context.state`):**
+
+| State key | Written by | Read by |
+|-----------|------------|---------|
+| `PROMPT` | greeter (append_to_state) | researcher, screenwriter |
+| `research` | researcher (append_to_state + Wikipedia) | screenwriter |
+| `PLOT_OUTLINE` | screenwriter (append_to_state) | file_writer |
+| `CRITICAL_FEEDBACK` | critic (course loop — not in this demo) | researcher, screenwriter |
+
+- **Write:** `tool_context.state[field] = existing + [response]`
+- **Read:** `{field?} in agent instruction`
+- Tools and agents share the same session state. append_to_state appends to list-valued keys so each pass adds context without overwriting.
+
+**Output:** `movie_pitches/*.txt`
+
+**Test scenario:**
+
+#### Ada Lovelace biopic
+
+> Ada Lovelace
+
+1. Greeter saves PROMPT and delegates to film_concept_team
+2. Researcher gathers Wikipedia facts into research
+3. Screenwriter writes PLOT_OUTLINE
+4. File writer saves a pitch txt under movie_pitches/
+
 ### State namespaces in multi-agent workflows
 
 Effective state management lets workflows maintain context, respect user preferences, and coordinate parallel execution. All agents in a workflow share one session state — output_key writes, {key} reads, state accumulates.
@@ -796,6 +844,24 @@ Browse every agent in the web UI from the repo root: `adk web .` (select e.g. `m
   - Researcher saves to research_findings; writer reads it and writes draft_article
   - Editor reads {draft_article} and returns the polished final version
   - All agents in the pipeline share the same session state
+
+#### `multi_agent/film_concept_team` — Film pitch pipeline — greeter → research → write → file
+
+- **Module:** Module — Workflow capstone
+- **Agent name:** `greeter`
+- **ADK name:** `multi_agent.film_concept_team`
+- **How to run:**
+  - `adk run multi_agent/film_concept_team`
+  - Prerequisite: `pip install langchain-core langchain-community wikipedia`
+- **Try asking:**
+  - "Ada Lovelace"
+  - "Marie Curie"
+- **What we learned:**
+  - SequentialAgent runs researcher → screenwriter → file_writer in fixed order
+  - tool_context.state in tools writes shared session state (PROMPT, research, PLOT_OUTLINE)
+  - Agents read state via {PROMPT?}, {research?}, {PLOT_OUTLINE?} templating
+  - LangchainTool wraps Wikipedia for the researcher agent
+  - Full course adds LoopAgent (critic loop) + ParallelAgent (pre-production)
 
 #### `multi_agent/customer_service_app_multi_agent` — Customer service app — intake → parallel → respond
 

@@ -717,12 +717,17 @@ def render_film_concept_workflow_docs(film: dict) -> list[str]:
             "        subgraph LOOP[writers_room LoopAgent]",
             "            R[researcher] --> SW[screenwriter] --> C[critic]",
             "            C -.->|CRITICAL_FEEDBACK| R",
-            "            C -.->|exit_loop| FW",
             "            R -.-> WIKI[wikipedia tool]",
+            "        end",
+            "        subgraph PAR[preproduction_team ParallelAgent]",
+            "            BO[box_office_researcher]",
+            "            CA[casting_agent]",
             "        end",
             "        FW[file_writer]",
             "    end",
-            "    LOOP --> FW",
+            "    LOOP --> PAR",
+            "    PAR --> FW",
+            "    C -.->|exit_loop| PAR",
             "```",
             "",
             "**Loop iteration (sequential each pass):**",
@@ -731,6 +736,12 @@ def render_film_concept_workflow_docs(film: dict) -> list[str]:
     )
     for step in film.get("loop_flow", []):
         lines.append(f"- {step}")
+
+    parallel_flow = film.get("parallel_flow", [])
+    if parallel_flow:
+        lines.extend(["", "**Parallel stage (after loop exits):**", ""])
+        for step in parallel_flow:
+            lines.append(f"- {step}")
 
     steps = film.get("steps", [])
     if steps:
@@ -768,6 +779,8 @@ def render_film_concept_workflow_docs(film: dict) -> list[str]:
         )
         if pattern.get("exit"):
             lines.append(f"- **Exit loop:** `{pattern.get('exit', '')}`")
+        if pattern.get("parallel"):
+            lines.append(f"- **Parallel:** `{pattern.get('parallel', '')}`")
         if pattern.get("note"):
             lines.append(f"- {pattern.get('note', '')}")
 

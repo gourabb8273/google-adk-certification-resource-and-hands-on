@@ -35,7 +35,7 @@ See the main [README](../README.md#multi-agent-multi_agent) for decision guide, 
 | **State in workflows** — session + user: | `doc_processor/` |
 | **Custom agents** — conditional routing | `conditional_router/` |
 | **A2A protocol** — expose + consume | `a2a_demo/` |
-| **Film concept team** — LoopAgent writers room | `film_concept_team/` |
+| **Film concept team** — Sequential + Loop + Parallel capstone | `film_concept_team/` |
 | **Capstone** | `customer_service_app_multi_agent/` |
 
 ### A2A demo (`a2a_demo/`)

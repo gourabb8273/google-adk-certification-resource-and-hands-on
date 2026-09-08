@@ -497,11 +497,11 @@ Folder: `multi_agent/customer_service_app_multi_agent/` — `adk run multi_agent
 3. Technical researcher investigates the login issue
 4. Response agent addresses both issues
 
-### Film concept team — LoopAgent writers room
+### Film concept team — Sequential + Loop + Parallel
 
-Greeter collects a historical figure, then film_concept_team runs a writers_room LoopAgent (research → write → critique) until the critic exits the loop, then file_writer saves the pitch. State flows through tool_context.state and {key?} templating.
+Full workflow capstone: greeter → film_concept_team (SequentialAgent) runs writers_room (LoopAgent), preproduction_team (ParallelAgent), then file_writer. Combines all three workflow agent types with shared session state.
 
-The user provides minimal input (e.g. "Ada Lovelace"), then the agent workflow takes over. Loop sub-agents run sequentially each iteration; the critic decides whether to iterate or exit.
+The user provides minimal input (e.g. "Ada Lovelace"), then the agent workflow takes over. Nested workflow agents — Sequential contains Loop and Parallel stages before the final file write.
 
 **Architecture:**
 
@@ -513,12 +513,17 @@ flowchart TB
         subgraph LOOP[writers_room LoopAgent]
             R[researcher] --> SW[screenwriter] --> C[critic]
             C -.->|CRITICAL_FEEDBACK| R
-            C -.->|exit_loop| FW
             R -.-> WIKI[wikipedia tool]
+        end
+        subgraph PAR[preproduction_team ParallelAgent]
+            BO[box_office_researcher]
+            CA[casting_agent]
         end
         FW[file_writer]
     end
-    LOOP --> FW
+    LOOP --> PAR
+    PAR --> FW
+    C -.->|exit_loop| PAR
 ```
 
 **Loop iteration (sequential each pass):**
@@ -527,12 +532,17 @@ flowchart TB
 - screenwriter — draft/improve PLOT_OUTLINE using research and feedback
 - critic — exit_loop if good, else CRITICAL_FEEDBACK → next iteration
 
+**Parallel stage (after loop exits):**
+
+- box_office_researcher — output_key box_office_report from {PLOT_OUTLINE?}
+- casting_agent — output_key casting_report from {PLOT_OUTLINE?}
+
 **Agents:**
 
 - `greeter` — Ask for historical subject; save PROMPT; delegate to film_concept_team
 - `writers_room (LoopAgent)` — researcher → screenwriter → critic (iterate or exit_loop)
-- `file_writer` — Title the movie and write pitch to movie_pitches/
-- `preproduction_team (ParallelAgent)` — box_office_researcher + casting_agent — course extension *(course extension)*
+- `preproduction_team (ParallelAgent)` — box_office_researcher + casting_agent run concurrently
+- `file_writer` — Aggregate PLOT_OUTLINE + reports; write movie_pitches/*.txt
 
 Demo: `multi_agent/film_concept_team/`
 
@@ -542,17 +552,20 @@ Demo: `multi_agent/film_concept_team/`
 |-----------|------------|---------|
 | `PROMPT` | greeter (append_to_state) | researcher, screenwriter |
 | `research` | researcher (append_to_state + Wikipedia) | screenwriter, critic |
-| `PLOT_OUTLINE` | screenwriter (append_to_state) | critic, file_writer |
+| `PLOT_OUTLINE` | screenwriter (append_to_state) | critic, preproduction agents, file_writer |
 | `CRITICAL_FEEDBACK` | critic (append_to_state) | researcher, screenwriter |
+| `box_office_report` | box_office_researcher (output_key) | file_writer |
+| `casting_report` | casting_agent (output_key) | file_writer |
 
 - **Write:** `tool_context.state[field] = existing + [response]`
 - **Read:** `{field?} in agent instruction`
 - **Exit loop:** `exit_loop tool — critic ends the LoopAgent when outline is ready`
-- Tools and agents share the same session state. Each loop iteration runs researcher → screenwriter → critic in order until exit_loop or max_iterations.
+- **Parallel:** `output_key per parallel branch — distinct keys avoid state conflicts`
+- Sequential runs loop → parallel → file. Loop sub-agents run in order each iteration. Parallel agents run concurrently after the loop exits.
 
 **Output:** `movie_pitches/*.txt`
 
-[ADK LoopAgent docs](https://google.github.io/adk-docs/agents/workflow-agents/loop-agents/)
+[ADK LoopAgent docs](https://google.github.io/adk-docs/agents/workflow-agents/)
 
 **Test scenario:**
 
@@ -561,9 +574,9 @@ Demo: `multi_agent/film_concept_team/`
 > Ada Lovelace
 
 1. Greeter saves PROMPT and delegates to film_concept_team
-2. writers_room loop — researcher, screenwriter, critic run (may repeat)
-3. Critic exits loop when outline meets quality bar
-4. file_writer saves pitch txt under movie_pitches/
+2. writers_room loop — researcher, screenwriter, critic (may repeat)
+3. preproduction_team — box office + casting reports in parallel
+4. file_writer saves full pitch txt under movie_pitches/
 
 ### State namespaces in multi-agent workflows
 
@@ -866,7 +879,7 @@ Browse every agent in the web UI from the repo root: `adk web .` (select e.g. `m
   - Editor reads {draft_article} and returns the polished final version
   - All agents in the pipeline share the same session state
 
-#### `multi_agent/film_concept_team` — Film pitch — greeter → writers_room loop → file_writer
+#### `multi_agent/film_concept_team` — Film pitch — Sequential + Loop + Parallel workflow capstone
 
 - **Module:** Module — Workflow capstone
 - **Agent name:** `greeter`
@@ -878,11 +891,11 @@ Browse every agent in the web UI from the repo root: `adk web .` (select e.g. `m
   - "Ada Lovelace"
   - "Marie Curie"
 - **What we learned:**
-  - LoopAgent runs researcher → screenwriter → critic each iteration (sequential)
-  - critic calls exit_loop when outline is good, or writes CRITICAL_FEEDBACK to iterate
-  - SequentialAgent runs writers_room loop first, then file_writer after loop exits
-  - tool_context.state shares PROMPT, research, PLOT_OUTLINE, CRITICAL_FEEDBACK
-  - LangchainTool wraps Wikipedia; max_iterations=5 prevents infinite loops
+  - SequentialAgent — writers_room → preproduction_team → file_writer in order
+  - LoopAgent — researcher → screenwriter → critic until exit_loop (max 5)
+  - ParallelAgent — box_office_researcher + casting_agent run concurrently
+  - output_key on parallel agents (box_office_report, casting_report) avoids conflicts
+  - tool_context.state + {key?} for PROMPT, research, PLOT_OUTLINE, CRITICAL_FEEDBACK
 
 #### `multi_agent/customer_service_app_multi_agent` — Customer service app — intake → parallel → respond
 

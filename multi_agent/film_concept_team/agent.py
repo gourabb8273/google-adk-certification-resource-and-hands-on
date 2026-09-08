@@ -1,15 +1,16 @@
 """
-Film Concept Team — workflow agents + tool_context.state
+Film Concept Team — Sequential + Loop + Parallel workflow agents
 
 Architecture:
   greeter → film_concept_team (SequentialAgent)
     → writers_room (LoopAgent: researcher → screenwriter → critic)
+    → preproduction_team (ParallelAgent: box_office + casting)
     → file_writer
 
-The critic uses exit_loop when the outline is good, or append_to_state for
-CRITICAL_FEEDBACK to drive another research/write iteration (max 5).
-
-Reference: https://google.github.io/adk-docs/agents/workflow-agents/loop-agents/
+Reference:
+  https://google.github.io/adk-docs/agents/workflow-agents/sequential-agents/
+  https://google.github.io/adk-docs/agents/workflow-agents/loop-agents/
+  https://google.github.io/adk-docs/agents/workflow-agents/parallel-agents/
 """
 
 from __future__ import annotations
@@ -18,7 +19,7 @@ import logging
 from pathlib import Path
 
 from dotenv import load_dotenv
-from google.adk.agents import LlmAgent, LoopAgent, SequentialAgent
+from google.adk.agents import LlmAgent, LoopAgent, ParallelAgent, SequentialAgent
 from google.adk.tools import exit_loop
 from google.adk.tools.langchain_tool import LangchainTool
 from google.adk.tools.tool_context import ToolContext
@@ -83,10 +84,16 @@ INSTRUCTIONS:
 - Use write_file to save a txt file:
     - filename: the movie title
     - directory: movie_pitches
-    - content: logline + synopsis/plot outline from PLOT_OUTLINE
+    - content: include PLOT_OUTLINE, BOX_OFFICE_REPORT, and CASTING_REPORT
 
 PLOT_OUTLINE:
 {PLOT_OUTLINE?}
+
+BOX_OFFICE_REPORT:
+{box_office_report?}
+
+CASTING_REPORT:
+{casting_report?}
 """,
     generate_content_config=types.GenerateContentConfig(temperature=0),
     tools=[write_file],
@@ -180,10 +187,48 @@ writers_room = LoopAgent(
     max_iterations=5,
 )
 
+box_office_researcher = LlmAgent(
+    model=MODEL,
+    name="box_office_researcher",
+    description="Considers the box office potential of this film.",
+    output_key="box_office_report",
+    instruction="""
+PLOT_OUTLINE:
+{PLOT_OUTLINE?}
+
+INSTRUCTIONS:
+Write a report on the box office potential of a movie like that described in
+PLOT_OUTLINE based on the reported box office performance of other recent films.
+""",
+    generate_content_config=types.GenerateContentConfig(temperature=0),
+)
+
+casting_agent = LlmAgent(
+    model=MODEL,
+    name="casting_agent",
+    description="Generates casting ideas for this film.",
+    output_key="casting_report",
+    instruction="""
+PLOT_OUTLINE:
+{PLOT_OUTLINE?}
+
+INSTRUCTIONS:
+Generate casting ideas for the characters described in PLOT_OUTLINE by suggesting
+actors who have received positive feedback when playing similar roles.
+""",
+    generate_content_config=types.GenerateContentConfig(temperature=0),
+)
+
+preproduction_team = ParallelAgent(
+    name="preproduction_team",
+    description="Parallel box office and casting analysis after the outline is ready.",
+    sub_agents=[box_office_researcher, casting_agent],
+)
+
 film_concept_team = SequentialAgent(
     name="film_concept_team",
-    description="Write a film plot outline and save it as a text file.",
-    sub_agents=[writers_room, file_writer],
+    description="Write a film plot outline, run pre-production, and save a pitch file.",
+    sub_agents=[writers_room, preproduction_team, file_writer],
 )
 
 root_agent = LlmAgent(

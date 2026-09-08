@@ -4,11 +4,17 @@ Research Specialist — A2A server (expose side)
 This agent runs as a separate process and is consumed by the coordinator
 via the Agent2Agent (A2A) protocol.
 
-Start the server:
+Start the server (local):
   uvicorn multi_agent.a2a_demo.remote_research_specialist.agent:a2a_app \\
     --host localhost --port 8001
 
-Agent card: http://localhost:8001/.well-known/agent-card.json
+Deploy as A2A server (Cloud Run):
+  See agent.json + requirements.txt in this folder.
+  adk deploy cloud_run --project=$GOOGLE_CLOUD_PROJECT \\
+    --region=us-central1 --service_name=research-specialist --a2a .
+
+Agent card (local): http://localhost:8001/.well-known/agent-card.json
+Agent card (cloud): agent.json url field after deploy
 
 Reference: https://google.github.io/adk-docs/a2a/quickstart-exposing/
 """

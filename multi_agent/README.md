@@ -40,22 +40,38 @@ See the main [README](../README.md#multi-agent-multi_agent) for decision guide, 
 
 ### A2A demo (`a2a_demo/`)
 
-Two-process setup — remote specialist over HTTP, local coordinator:
+**Local** — remote specialist over HTTP, local coordinator:
 
 ```bash
 pip install 'google-adk[a2a]'
-cp multi_agent/a2a_demo/.env.example multi_agent/a2a_demo/.env  # add API key
+cp multi_agent/a2a_demo/.env.example multi_agent/a2a_demo/.env
 
-# Terminal 1 — expose specialist
+# Terminal 1 — expose specialist (to_a2a + uvicorn)
 uvicorn multi_agent.a2a_demo.remote_research_specialist.agent:a2a_app --host localhost --port 8001
 
 # Terminal 2 — run coordinator
 adk run multi_agent/a2a_demo
 ```
 
+**Cloud Run A2A server** — deploy with `agent.json` + `--a2a`:
+
+```bash
+# Files: remote_research_specialist/agent.json, agent.py, requirements.txt
+adk deploy cloud_run \
+  --project=$GOOGLE_CLOUD_PROJECT \
+  --region=us-central1 \
+  --service_name=research-specialist \
+  --a2a \
+  multi_agent/a2a_demo/remote_research_specialist \
+  -- \
+  --set-env-vars="GOOGLE_CLOUD_LOCATION=global"
+```
+
+Update `agent.json` `url` to your Cloud Run service URL after deploy.
+
 **Try:** *"Research the impact of AI on healthcare"*
 
-See the main [README](../README.md) for full A2A concepts and when to use it.
+See the main [README](../README.md) for full A2A docs, agent card fields, and deploy pattern.
 
 ```bash
 adk web .

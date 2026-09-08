@@ -718,6 +718,99 @@ adk run multi_agent/a2a_demo
 Verify the remote agent card: `http://localhost:8001/.well-known/agent-card.json`
 - Use port 8001 for the remote A2A server so it does not conflict with adk web (default port 8000).
 
+**Ways to expose an A2A agent:**
+
+#### Local development (to_a2a + uvicorn)
+
+- **Use when:** Learning, testing, no GCP required
+- ADK auto-generates agent card at /.well-known/agent-card.json
+
+```bash
+uvicorn multi_agent.a2a_demo.remote_research_specialist.agent:a2a_app --host localhost --port 8001
+```
+
+
+#### Production (Cloud Run + agent.json)
+
+- **Use when:** Deploy remote A2A agent to GCP with a public URL
+[Docs](https://google.github.io/adk-docs/deploy/cloud-run/)
+
+#### Deploy agent as an A2A server on Cloud Run
+
+An A2A agent identifies itself via an Agent Card (agent.json). Deploy with adk deploy cloud_run --a2a so other agents can consume it via RemoteA2aAgent using the card url.
+
+**Agent folder:** `multi_agent/a2a_demo/remote_research_specialist`
+
+**Files required:**
+
+| File | Purpose |
+|------|---------|
+| `agent.json` | Agent card — name, description, skills, url, capabilities |
+| `agent.py` | Agent code with root_agent |
+| `requirements.txt` | google-adk[a2a] and dependencies |
+
+**agent.json fields:**
+
+| Field | Description |
+|-------|-------------|
+| `name` | Agent identifier (matches root_agent name) |
+| `description` | What the agent does — shown to consuming agents |
+| `skills` | Callable capabilities (id, name, description, tags) |
+| `url` | Cloud Run service URL + /a2a/<agent_folder>. Update after first deploy or use your known service URL pattern. |
+| `capabilities` | Reserved for protocol features like streaming (often {}) |
+| `defaultInputModes / defaultOutputModes` | Supported content types (e.g. text/plain) |
+
+**URL pattern:** `https://SERVICE_NAME-PROJECT_HASH.REGION.run.app/a2a/AGENT_FOLDER`
+
+
+**requirements.txt:**
+
+```
+google-adk[a2a]
+```
+
+**agent.json example:**
+
+```json
+{
+  "name": "research_specialist",
+  "description": "Deep research on topics — trends, facts, and key points.",
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["text/plain"],
+  "skills": [
+    {
+      "id": "research_topic",
+      "name": "Research Topic",
+      "description": "Research a topic and return key facts and trends.",
+      "tags": ["research", "analysis"]
+    }
+  ],
+  "url": "https://research-specialist-PROJECT_ID.us-central1.run.app/a2a/remote_research_specialist",
+  "capabilities": {},
+  "version": "1.0.0"
+}
+```
+
+**Deploy command:**
+
+```bash
+adk deploy cloud_run \
+  --project=$GOOGLE_CLOUD_PROJECT \
+  --region=us-central1 \
+  --service_name=research-specialist \
+  --a2a \
+  multi_agent/a2a_demo/remote_research_specialist \
+  -- \
+  --set-env-vars="GOOGLE_CLOUD_LOCATION=global"
+```
+
+- Create agent.json before deploy — defines the agent card served by the A2A server
+- The --a2a flag exposes only folders that contain agent.json
+- Update agent.json url to match your Cloud Run service URL after deploy
+- Optional — pass service account and env vars after -- (Cloud Run gcloud flags)
+- Consuming agents point RemoteA2aAgent at the deployed agent card URL
+
+
 **References:**
 
 - [A2A protocol](https://a2a-protocol.org/)
@@ -835,18 +928,19 @@ Browse every agent in the web UI from the repo root: `adk web .` (select e.g. `m
 - **How to run:**
   - `adk run multi_agent/a2a_demo`
   - Prerequisite: `pip install 'google-adk[a2a]'`
-  - **Start remote specialist (Terminal 1):** `uvicorn multi_agent.a2a_demo.remote_research_specialist.agent:a2a_app --host localhost --port 8001`
-  - **Run coordinator (Terminal 2):** `adk run multi_agent/a2a_demo`
+  - **Local — start remote specialist (Terminal 1):** `uvicorn multi_agent.a2a_demo.remote_research_specialist.agent:a2a_app --host localhost --port 8001`
+  - **Local — run coordinator (Terminal 2):** `adk run multi_agent/a2a_demo`
+  - **Cloud — deploy as A2A server (see agent.json + README):** `adk deploy cloud_run --project=$GOOGLE_CLOUD_PROJECT --region=us-central1 --service_name=research-specialist --a2a multi_agent/a2a_demo/remote_research_specialist`
 - **Try asking:**
   - "Research the impact of AI on healthcare"
   - "What are the main trends in renewable energy?"
   - "Hello — what can you help me with?"
 - **What we learned:**
   - A2A is an open standard for agents to communicate across networks and services
-  - Expose side — to_a2a(agent) creates a Starlette app; serve with uvicorn
+  - Local expose — to_a2a(agent) + uvicorn for development
+  - Cloud expose — agent.json + adk deploy cloud_run --a2a for production
   - Consume side — RemoteA2aAgent connects using the remote agent card URL
-  - Agent card (JSON) describes name, capabilities, skills, and endpoint URL
-  - Use A2A for cross-team or cross-service agents; use sub_agents for same codebase
+  - Agent card JSON describes name, skills, capabilities, and endpoint url
 
 #### `multi_agent/refinement_loop` — LoopAgent — draft → check → improve (repeat)
 

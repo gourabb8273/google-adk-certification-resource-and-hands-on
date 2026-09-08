@@ -493,6 +493,77 @@ def render_a2a_docs(a2a: dict) -> list[str]:
         if port_note:
             lines.append(f"- {port_note}")
 
+    expose_methods = a2a.get("expose_methods", [])
+    if expose_methods:
+        lines.extend(["", "**Ways to expose an A2A agent:**", ""])
+        for method in expose_methods:
+            lines.append(f"#### {method['name']}")
+            lines.append("")
+            lines.append(f"- **Use when:** {method.get('use_when', '')}")
+            if method.get("note"):
+                lines.append(f"- {method['note']}")
+            if method.get("command"):
+                lines.extend(["", "```bash", method["command"], "```", ""])
+            ref = method.get("reference")
+            if ref:
+                lines.append(f"[Docs]({ref})")
+            lines.append("")
+
+    cloud = a2a.get("cloud_a2a_deploy")
+    if cloud:
+        lines.extend(
+            [
+                f"#### {cloud['title']}",
+                "",
+                cloud.get("intro", ""),
+                "",
+                f"**Agent folder:** `{cloud.get('folder', '')}`",
+                "",
+                "**Files required:**",
+                "",
+                "| File | Purpose |",
+                "|------|---------|",
+            ]
+        )
+        for f in cloud.get("files", []):
+            lines.append(f"| `{f['name']}` | {f['purpose']} |")
+
+        fields = cloud.get("agent_json_fields", [])
+        if fields:
+            lines.extend(
+                [
+                    "",
+                    "**agent.json fields:**",
+                    "",
+                    "| Field | Description |",
+                    "|-------|-------------|",
+                ]
+            )
+            for row in fields:
+                lines.append(f"| `{row['field']}` | {row['description']} |")
+
+        url_pattern = cloud.get("url_pattern")
+        if url_pattern:
+            lines.extend(["", f"**URL pattern:** `{url_pattern}`", ""])
+
+        req = cloud.get("requirements")
+        if req:
+            lines.extend(["", "**requirements.txt:**", "", f"```\n{req}\n```", ""])
+
+        example = cloud.get("agent_json_example")
+        if example:
+            lines.extend(["**agent.json example:**", "", "```json"])
+            lines.append(example.rstrip())
+            lines.extend(["```", ""])
+
+        deploy_cmd = cloud.get("deploy_command")
+        if deploy_cmd:
+            lines.extend(["**Deploy command:**", "", "```bash", deploy_cmd, "```", ""])
+
+        for note in cloud.get("deploy_notes", []):
+            lines.append(f"- {note}")
+        lines.append("")
+
     refs = [
         ("A2A protocol", a2a.get("official_site")),
         ("ADK A2A overview", a2a.get("adk_docs")),

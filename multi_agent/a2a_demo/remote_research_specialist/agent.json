@@ -1,0 +1,17 @@
+{
+  "name": "research_specialist",
+  "description": "Deep research on topics — trends, facts, and key points.",
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["text/plain"],
+  "skills": [
+    {
+      "id": "research_topic",
+      "name": "Research Topic",
+      "description": "Research a topic and return key facts, trends, and practical implications.",
+      "tags": ["research", "analysis"]
+    }
+  ],
+  "url": "https://research-specialist-PROJECT_ID.us-central1.run.app/a2a/remote_research_specialist",
+  "capabilities": {},
+  "version": "1.0.0"
+}

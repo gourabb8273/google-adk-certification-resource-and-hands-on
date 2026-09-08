@@ -25,7 +25,192 @@ tracks:
       Orchestration patterns — sub-agents, pipelines, and coordinated
       multi-agent workflows.
 
+  deployment:
+    label: Deployment
+    dir: deployment
+    title: Deploy ADK Agents to Google Cloud
+    path_url: https://google.github.io/adk-docs/deploy/
+    summary: >-
+      Agent Engine and Cloud Run — deploy commands, platform comparison,
+      and production session persistence.
+
 agents:
+  - track: multi_agent
+    folder: customer_service
+    name: customer_service_coordinator
+    module: "Module — Multi-agent hierarchy"
+    topic: Coordinator + billing & technical specialists
+    learned:
+      - Single agents get overwhelmed when one instruction covers many domains
+      - sub_agents creates a parent-child hierarchy with specialist children
+      - Coordinator routes billing vs technical questions to the right expert
+      - Each agent has at most one parent; use agent.find_agent(name) to navigate
+    run: adk run multi_agent.customer_service
+    env_template: enterprise
+    try_queries:
+      - "I was charged twice on my last invoice"
+      - "The app crashes when I try to log in"
+      - "What are your business hours?"
+
+  - track: multi_agent
+    folder: sequential_pipeline
+    name: request_pipeline
+    module: "Module — Workflow agents"
+    topic: SequentialAgent — intake → analyze → respond
+    learned:
+      - SequentialAgent runs sub-agents in fixed list order (A → B → C)
+      - "output_key saves each step to session state for the next step"
+      - "{key} templating reads previous step output — deterministic, not LLM routing"
+      - Use when each step must finish before the next begins
+    run: adk run multi_agent.sequential_pipeline
+    env_template: enterprise
+    try_queries:
+      - "Help me plan a team offsite for 20 people in Austin"
+
+  - track: multi_agent
+    folder: parallel_research
+    name: research_pipeline
+    module: "Module — Workflow agents"
+    topic: ParallelAgent + SequentialAgent — parallel research → summarize
+    learned:
+      - ParallelAgent runs sub-agents concurrently for speed
+      - Each parallel branch needs a distinct output_key to avoid state conflicts
+      - Nest ParallelAgent inside SequentialAgent when parallel work precedes a merge step
+      - "Summarizer reads {benefits} and {challenges} after all branches complete"
+    run: adk run multi_agent.parallel_research
+    env_template: enterprise
+    try_queries:
+      - "Give me an overview of renewable energy pros and cons"
+
+  - track: multi_agent
+    folder: balanced_research
+    name: balanced_research
+    module: "Module — Orchestrate complex workflows"
+    topic: Parallel research + aggregation — benefits & challenges → summary
+    learned:
+      - Choose SequentialAgent when steps depend on each other; ParallelAgent when independent
+      - Parallel agents need distinct output_key values to avoid state conflicts
+      - Wrap ParallelAgent inside SequentialAgent so aggregator runs after all branches finish
+      - Aggregation pattern — summarizer reads {benefits} and {challenges} from shared state
+    run: adk run multi_agent.balanced_research
+    env_template: enterprise
+    try_queries:
+      - "Research artificial intelligence in healthcare"
+      - "Research renewable energy adoption"
+      - "Research remote work for software teams"
+
+  - track: multi_agent
+    folder: doc_processor
+    name: document_processor
+    module: "Module — State in workflows"
+    topic: Configurable doc processor — session + user namespaces
+    learned:
+      - Session state holds workflow outputs — document_content, topics, sentiment, summary
+      - "user:summary_format reads user preference via {user:summary_format?bullet points}"
+      - Parallel analyzers use distinct output_key values to avoid state conflicts
+      - State accumulates through the pipeline and persists for follow-up questions
+    run: adk run multi_agent.doc_processor
+    env_template: enterprise
+    try_queries:
+      - >-
+        Process this document: "The new product launch exceeded expectations. Sales jumped
+        40% in the first week. Customer feedback has been overwhelmingly positive, with 95%
+        satisfaction ratings."
+      - "What topics did you identify?"
+      - "Summarize using paragraph format instead of bullet points"
+
+  - track: multi_agent
+    folder: conditional_router
+    name: conditional_pipeline
+    module: "Module — Custom agents"
+    topic: ConditionalRouter — dynamic routing with BaseAgent
+    learned:
+      - Workflow agents run all sub-agents in their pattern — they cannot skip or branch
+      - Use BaseAgent + _run_async_impl for conditional skipping and dynamic routing
+      - Classifier sets request_type; ConditionalRouter reads state and delegates
+      - Default to workflow agents; custom agents only when if/else logic is required
+    run: adk run multi_agent.conditional_router
+    env_template: enterprise
+    try_queries:
+      - "I was charged twice for my subscription last month"
+      - "How do I reset my password?"
+      - "My invoice shows the wrong amount and I need help updating my profile"
+
+  - track: multi_agent
+    folder: a2a_demo
+    name: research_coordinator
+    module: "Module 4 — A2A protocol"
+    topic: Agent2Agent — expose specialist + consume via RemoteA2aAgent
+    learned:
+      - A2A is an open standard for agents to communicate across networks and services
+      - Expose side — to_a2a(agent) creates a Starlette app; serve with uvicorn
+      - Consume side — RemoteA2aAgent connects using the remote agent card URL
+      - Agent card (JSON) describes name, capabilities, skills, and endpoint URL
+      - Use A2A for cross-team or cross-service agents; use sub_agents for same codebase
+    run: adk run multi_agent/a2a_demo
+    env_template: enterprise
+    install_extra: "pip install 'google-adk[a2a]'"
+    run_steps:
+      - label: Start remote specialist (Terminal 1)
+        command: >-
+          uvicorn multi_agent.a2a_demo.remote_research_specialist.agent:a2a_app
+          --host localhost --port 8001
+      - label: Run coordinator (Terminal 2)
+        command: adk run multi_agent/a2a_demo
+    try_queries:
+      - "Research the impact of AI on healthcare"
+      - "What are the main trends in renewable energy?"
+      - "Hello — what can you help me with?"
+
+  - track: multi_agent
+    folder: refinement_loop
+    name: writing_pipeline
+    module: "Module — Workflow agents"
+    topic: LoopAgent — draft → check → improve (repeat)
+    learned:
+      - LoopAgent repeats sub-agents until max_iterations is reached
+      - Always set max_iterations to prevent infinite loops
+      - Good for iterative refinement — checker gives feedback, improver updates draft
+      - Combine with SequentialAgent — draft first, then loop for quality passes
+    run: adk run multi_agent.refinement_loop
+    env_template: enterprise
+    try_queries:
+      - "Write about the importance of renewable energy"
+
+  - track: multi_agent
+    folder: research_pipeline
+    name: article_pipeline
+    module: "Module — Agent communication"
+    topic: State-based communication — research → write → edit
+    learned:
+      - Agents share data through session state — output_key writes, {key} reads
+      - Researcher saves to research_findings; writer reads it and writes draft_article
+      - Editor reads {draft_article} and returns the polished final version
+      - All agents in the pipeline share the same session state
+    run: adk run multi_agent.research_pipeline
+    env_template: enterprise
+    try_queries:
+      - "Write an article about renewable energy"
+      - "Write an article about the future of electric vehicles"
+
+  - track: multi_agent
+    folder: customer_service_app_multi_agent
+    name: customer_service_app_multi_agent
+    module: "Module — Capstone"
+    topic: Customer service app — intake → parallel → respond
+    learned:
+      - Intake writes ticket_info; parallel researchers read {ticket_info}
+      - billing_researcher → billing_findings; technical_researcher → technical_findings
+      - Responder combines all state keys into one customer-facing answer
+      - SequentialAgent + ParallelAgent + output_key + {key} in one production-style app
+    run: adk run multi_agent.customer_service_app_multi_agent
+    env_template: enterprise
+    try_queries:
+      - "I was charged twice for my subscription last month. The charge was on December 15th."
+      - "The app crashes every time I try to upload a photo. I'm using an iPhone 14."
+      - "I can't log in to my account and I think I'm being charged even though I canceled."
+      - "I was double-charged on my subscription and the app won't let me update my card"
+
   - track: foundational
     folder: simple_agent_module1
     name: math_tutor
@@ -39,6 +224,8 @@ agents:
       - load_dotenv and session state from environment variables
     run: python foundational/simple_agent_module1/agent.py
     env_template: vertexai
+    try_queries:
+      - "What is 2x + 5 = 13?"
 
   - track: foundational
     folder: agent_with_yaml
@@ -51,6 +238,8 @@ agents:
       - Same adk web / adk run workflow as code-based agents
     run: adk run foundational.agent_with_yaml
     env_template: enterprise
+    try_queries:
+      - "How do I solve x² - 5x + 6 = 0?"
 
   - track: foundational
     folder: customer_support_agent
@@ -63,6 +252,8 @@ agents:
       - load_dotenv for API credentials
     run: adk run foundational.customer_support_agent
     env_template: enterprise
+    try_queries:
+      - "My order #4521 hasn't arrived yet and I need it by Friday"
 
   - track: foundational
     folder: product_extractor
@@ -75,6 +266,8 @@ agents:
       - output_key stores parsed result in session state for reuse
     run: adk run foundational.product_extractor
     env_template: enterprise
+    try_queries:
+      - "I bought the iPhone 15 Pro 256GB in blue for $999"
 
   - track: foundational
     folder: model_comparison
@@ -87,6 +280,9 @@ agents:
       - safety_settings (HarmCategory, HarmBlockThreshold)
     run: adk run foundational.model_comparison
     env_template: enterprise
+    try_queries:
+      - "data_extractor: Extract facts from — The Eiffel Tower is 330 meters tall and was completed in 1889."
+      - "creative_brainstormer: Brainstorm 5 names for a sustainable coffee brand"
 
   - track: foundational
     folder: problem_solver_reasoning_agent
@@ -99,6 +295,8 @@ agents:
       - When to use BuiltInPlanner vs PlanReActPlanner
     run: adk run foundational.problem_solver_reasoning_agent
     env_template: enterprise
+    try_queries:
+      - "How can a small startup compete with established market leaders?"
 
   - track: foundational
     folder: name_extractor_memory
@@ -112,6 +310,26 @@ agents:
       - Programmatic testing with Runner and InMemorySessionService
     run: python foundational/name_extractor_memory/test_state.py
     env_template: enterprise
+    try_queries:
+      - "Hi, my name is Alex Johnson"
+      - "What's my name? (follow-up in same session)"
+
+  - track: foundational
+    folder: memory_bank
+    name: memory_assistant
+    module: "Module — Memory Bank"
+    topic: Cross-session memory — load_memory + auto-save callback
+    learned:
+      - Session state = this conversation; Memory Bank = across all conversations
+      - after_agent_callback + add_session_to_memory saves turns automatically
+      - load_memory tool searches past conversations semantically
+      - Production uses VertexAiMemoryBankService (LLM extraction, managed GCP)
+      - Local demo uses InMemoryMemoryService with the same Runner API pattern
+    run: python foundational/memory_bank/test_memory.py
+    env_template: enterprise
+    try_queries:
+      - "My favorite color is blue and I love hiking on weekends."
+      - "What do you remember about my hobbies and favorite color? (new session)"
 
   - track: foundational
     folder: personalized_greeter
@@ -125,6 +343,9 @@ agents:
       - Instructions adapt dynamically based on available state
     run: python foundational/personalized_greeter/test_templating.py
     env_template: enterprise
+    try_queries:
+      - "Hello (first turn — no name in state yet)"
+      - "Hello again (after name is saved to session state)"
 
   - track: foundational
     folder: namespace_demo
@@ -138,6 +359,9 @@ agents:
       - app: global config shared by all users
     run: python foundational/namespace_demo/test_namespaces.py
     env_template: enterprise
+    try_queries:
+      - "Show me the namespace values"
+      - "What persisted from my last session? (new session)"
 
   - track: foundational
     folder: geography_assistant
@@ -151,6 +375,9 @@ agents:
       - ADK wraps Google Search as a sub-agent when combined with custom tools
     run: python foundational/geography_assistant/test_tools.py
     env_template: enterprise
+    try_queries:
+      - "What is the capital of France?"
+      - "What is the current population of Tokyo?"
 
   - track: foundational
     folder: file_reader_mcp
@@ -166,6 +393,308 @@ agents:
       - Requires Node.js/npm and pip install 'mcp>=1.0,<2' (MCP SDK)
     run: python foundational/file_reader_mcp/test_mcp.py
     env_template: enterprise
+    try_queries:
+      - "List all files in the allowed folder"
+      - "Read the contents of hello.txt"
+
+  - track: deployment
+    folder: weather_agent
+    name: weather_agent
+    module: "Hands-on — Agent Engine"
+    topic: Deploy a simple agent to Vertex AI Agent Engine
+    learned:
+      - adk deploy agent-engine packages and deploys with one command (~5–10 min)
+      - VertexAiSessionService is configured automatically — no code changes needed
+      - Agent Engine is Python-only; use Cloud Run for Go/Java or --with_ui
+      - Local dev uses InMemorySessionService; cloud uses persistent VertexAiSessionService
+    deploy_only: true
+    env_template: gcp_deploy
+    install_extra: "pip install 'google-cloud-aiplatform[adk,agent_engines]>=1.111'"
+    run_steps:
+      - label: Create GCS staging bucket (one-time)
+        command: gsutil mb -p $GOOGLE_CLOUD_PROJECT -l us-central1 gs://$BUCKET_NAME
+      - label: Deploy to Agent Engine
+        command: >-
+          adk deploy agent-engine --project=$GOOGLE_CLOUD_PROJECT
+          --region=us-central1 --staging_bucket=gs://$BUCKET_NAME
+          --display_name="Weather Agent" deployment/weather_agent
+      - label: Test deployed agent
+        command: python deployment/weather_agent/test_deployed_agent.py
+    try_queries:
+      - "What's the weather in San Francisco?"
+      - "Will it rain tomorrow in Seattle?"
+
+workflow_agents:
+  intro: >-
+    Workflow agents coordinate sub-agents in a fixed, predictable pattern.
+    Unlike the coordinator pattern (LLM decides routing), workflow agents
+    provide deterministic execution.
+  use_cases:
+    - Pipelines — intake → process → respond (fixed order)
+    - Parallel tasks — research from multiple sources at once (for speed)
+    - Refinement — check quality, improve, repeat until good enough
+  types:
+    - name: SequentialAgent
+      pattern: "A → B → C"
+      use_when: Fixed order; each step needs previous output
+      keys:
+        - Agents run in list order; each waits for the previous to finish
+        - "output_key saves output; {key} reads from state"
+      reference: https://google.github.io/adk-docs/agents/workflow-agents/sequential-agents/
+      demo: sequential_pipeline
+    - name: ParallelAgent
+      pattern: "A + B + C"
+      use_when: Independent tasks; run concurrently for speed
+      keys:
+        - All sub-agents start at approximately the same time
+        - Each branch needs a distinct output_key
+        - Waits for all branches to complete
+      demo: parallel_research
+      reference: https://google.github.io/adk-docs/agents/workflow-agents/parallel-agents/
+      demo_orchestration: balanced_research
+    - name: LoopAgent
+      pattern: "(A → B) × N"
+      use_when: Iterative refinement, quality loops, retry patterns
+      keys:
+        - Repeats sub-agents until max_iterations (always set this!)
+        - Each iteration can use output from the previous pass
+      reference: https://google.github.io/adk-docs/agents/workflow-agents/loop-agents/
+      demo: refinement_loop
+
+workflow_decision_guide:
+  title: Choosing the right workflow agent
+  reference: https://google.github.io/adk-docs/agents/workflow-agents
+  rows:
+    - situation: Steps depend on each other
+      agent: SequentialAgent
+      why: Each step needs previous output
+    - situation: Steps are independent
+      agent: ParallelAgent
+      why: Faster — run at the same time
+    - situation: Need to repeat until done
+      agent: LoopAgent
+      why: Iterative refinement
+  parallel_coordination:
+    title: Coordinating state with ParallelAgent
+    rules:
+      - Always use a distinct output_key for each parallel agent
+      - Follow with an aggregator agent to combine results via {key} templating
+      - Wrap in SequentialAgent — parallel stage first, then aggregator
+    demo: balanced_research
+    pattern: "SequentialAgent([ParallelAgent(...), aggregator])"
+
+a2a_protocol:
+  title: Agent2Agent (A2A) Protocol
+  official_site: https://a2a-protocol.org/
+  adk_docs: https://google.github.io/adk-docs/a2a/
+  exposing_docs: https://google.github.io/adk-docs/a2a/quickstart-exposing/
+  consuming_docs: https://google.github.io/adk-docs/a2a/quickstart-consuming/
+  intro: >-
+    A2A is an open standard that lets agents communicate across networks,
+    services, and organizational boundaries. Instead of importing another
+    agent as Python code, one agent calls another over HTTP using a shared
+    contract called an agent card.
+  concepts:
+    - name: Expose (server)
+      description: >-
+        Make your agent available to others as an A2A service. In ADK, wrap
+        with to_a2a(agent) and serve via uvicorn, or use adk api_server --a2a.
+    - name: Consume (client)
+      description: >-
+        Let your agent call a remote A2A agent. In ADK, add a RemoteA2aAgent
+        sub-agent with the remote agent card URL.
+    - name: Agent card
+      description: >-
+        JSON metadata (name, description, capabilities, skills, url) that
+        describes what the remote agent can do. Served at
+        /.well-known/agent-card.json.
+  when_to_use:
+    - Microservices — agents deployed as separate services
+    - Cross-team or cross-organization collaboration
+    - Different languages or runtimes (not all agents in one Python process)
+    - Agents on different networks or cloud environments
+  when_not_to_use:
+    - Learning ADK basics — start with sub_agents in one codebase
+    - Single application where all agents live in the same repo
+    - Same team, same deployment — sub_agents or workflow agents are simpler
+    - Performance-critical local coordination — A2A adds network overhead
+  architecture:
+    local: research_coordinator (LlmAgent + RemoteA2aAgent)
+    remote: research_specialist (LlmAgent exposed via to_a2a + uvicorn :8001)
+    flow: Coordinator delegates → HTTP/A2A → Remote specialist responds
+  install: "pip install 'google-adk[a2a]'"
+  demo: a2a_demo
+  agent_card_path: /.well-known/agent-card.json
+  port_note: >-
+    Use port 8001 for the remote A2A server so it does not conflict with
+    adk web (default port 8000).
+
+custom_agents:
+  title: When to use custom agents (BaseAgent)
+  reference: https://google.github.io/adk-docs/agents/custom-agents
+  rule_of_thumb: >-
+    Default to workflow agents. Only use custom agents when you've confirmed
+    that Sequential, Parallel, and Loop cannot handle your conditional logic.
+  when_needed:
+    - name: Conditional skipping
+      example: "IF condition THEN skip Agent B and go directly to Agent C"
+      why: Workflow agents run every sub-agent in their pattern
+    - name: Dynamic routing
+      example: "IF type == billing THEN billing_agent ELSE general_agent"
+      why: Workflow agents cannot branch based on runtime conditions
+    - name: Complex early exit
+      example: "IF quality_score > 8 THEN exit loop early"
+      why: LoopAgent max_iterations is not enough for complex exit logic
+  decision_framework:
+    - question: Can I solve this with Sequential / Parallel / Loop?
+      yes: Use workflow agents (recommended)
+      no: Continue to next question
+    - question: Do I need conditional logic?
+      simple: Consider a custom agent
+      complex: Use a custom agent (advanced)
+  tradeoffs:
+    - factor: Maintenance
+      workflow: Maintained by ADK
+      custom: You maintain it
+    - factor: Testing
+      workflow: Standard patterns
+      custom: Custom test cases
+    - factor: Debugging
+      workflow: Clear execution flow
+      custom: More complex flow
+  preview_pattern: >-
+    Subclass BaseAgent, implement async _run_async_impl(ctx), read state,
+    yield events from the chosen sub-agent run_async(ctx).
+  demo: conditional_router
+
+state_namespaces_workflow:
+  title: State namespaces in multi-agent workflows
+  reference: https://google.github.io/adk-docs/sessions/state
+  intro: >-
+    Effective state management lets workflows maintain context, respect user
+    preferences, and coordinate parallel execution. All agents in a workflow
+    share one session state — output_key writes, {key} reads, state accumulates.
+  namespaces:
+    - prefix: "(session)"
+      workflow_use: Workflow outputs and intermediate results
+      examples: document_content, topics, sentiment, summary
+    - prefix: "user:"
+      workflow_use: User preferences that affect processing
+      examples: "user:summary_format"
+    - prefix: "app:"
+      workflow_use: Global configuration for workflows
+      examples: app-wide defaults
+    - prefix: "temp:"
+      workflow_use: Rarely needed in basic workflows
+      examples: turn-scoped scratch values
+  parallel_rules:
+    - Use distinct output_key for each parallel agent
+    - Aggregator reads all keys using {key} templating
+    - State is merged after the parallel stage completes
+  demo: doc_processor
+  test_scenarios:
+    - name: "Test 1 — Process a document"
+      query: >-
+        Process this document: "The new product launch exceeded expectations. Sales jumped
+        40% in the first week. Customer feedback has been overwhelmingly positive, with 95%
+        satisfaction ratings."
+      expected:
+        - Intake extracts and structures content
+        - Topic and sentiment analyzers run in parallel
+        - Summarizer creates summary (default bullet points — no user preference set)
+        - All state preserved for follow-up questions
+    - name: "Test 2 — Follow-up in same conversation"
+      query: "What topics did you identify?"
+      expected:
+        - Agent references topics from session state in the same conversation
+
+agent_communication:
+  intro: >-
+    Agents communicate by reading from and writing to shared session state.
+    Without state, each agent works in isolation — the writer cannot see the
+    researcher's output.
+  primary_pattern:
+    write: "output_key — saves agent response to session.state"
+    read: "{key} — ADK injects state value into instruction before the agent runs"
+  flow: Researcher → state[research_findings] → Writer → state[draft_article] → Editor
+  reference: https://google.github.io/adk-docs/agents/multi-agents#communication
+  patterns:
+    - name: "output_key + {key}"
+      use_when: Data flowing through pipelines (most common)
+      demo: research_pipeline
+    - name: sub_agents (LLM routing)
+      use_when: Dynamic routing based on request content
+      demo: customer_service
+    - name: RemoteA2aAgent (A2A)
+      use_when: Remote agent on another service, team, or network
+      demo: a2a_demo
+    - name: AgentTool
+      use_when: Explicit control, specialized subtasks
+      demo: foundational/geography_assistant
+
+customer_service_app_multi_agent:
+  title: Customer Service Multi-Agent App
+  folder: customer_service_app_multi_agent
+  description: >-
+    Capstone: intake → parallel billing + technical research → final response.
+    Full pipeline in multi_agent/customer_service_app_multi_agent/agent.py.
+  steps:
+    - id: 1
+      name: intake
+      status: implemented
+      note: Extract ticket details from user request
+    - id: 2
+      name: parallel_specialists
+      status: implemented
+      note: billing_researcher + technical_researcher run concurrently
+    - id: 3
+      name: responder
+      status: implemented
+      note: Create final response from all state keys
+  state_agents:
+    - agent: intake
+      role: Extract ticket info
+      output_key: ticket_info
+      reads: user request
+    - agent: billing_researcher
+      role: Research billing issues
+      output_key: billing_findings
+      reads: ticket_info
+    - agent: technical_researcher
+      role: Research technical issues
+      output_key: technical_findings
+      reads: ticket_info
+    - agent: responder
+      role: Create final response
+      output_key: null
+      reads: ticket_info, billing_findings, technical_findings
+  test_scenarios:
+    - name: "Test 1 — Billing issue"
+      query: >-
+        I was charged twice for my subscription last month.
+        The charge was on December 15th.
+      expected:
+        - "Intake extracts: billing issue, duplicate charge, December 15th date"
+        - Billing researcher finds relevant billing policies
+        - Technical researcher says no technical issues
+        - Response agent creates a helpful billing-focused answer
+    - name: "Test 2 — Technical issue"
+      query: >-
+        The app crashes every time I try to upload a photo.
+        I'm using an iPhone 14.
+      expected:
+        - "Intake extracts: technical issue, upload crash, iPhone 14"
+        - Billing researcher says no billing issues
+        - Technical researcher finds troubleshooting steps
+        - Response agent creates a helpful technical answer
+    - name: "Test 3 — Both billing and technical"
+      query: >-
+        I can't log in to my account and I think I'm being charged even though I canceled.
+      expected:
+        - "Intake extracts: both billing AND technical issues"
+        - Billing researcher investigates the charging issue
+        - Technical researcher investigates the login issue
+        - Response agent addresses both issues
 
 mcp_info:
   registry: https://registry.modelcontextprotocol.io
@@ -199,6 +728,123 @@ module_recap:
   question: "How long does state persist?"
   answer: "State namespaces control persistence scope — not all state should live forever."
 
+deployment:
+  title: Deploy ADK agents to Google Cloud
+  adk_docs: https://google.github.io/adk-docs/deploy/
+  agent_engine_docs: https://google.github.io/adk-docs/deploy/agent-engine/
+  cloud_run_docs: https://google.github.io/adk-docs/deploy/cloud-run/
+  intro: >-
+    ADK provides two GCP deployment options. Both give you a public URL, 24/7
+    availability, and automatic scaling. When deployed, agents automatically
+    use VertexAiSessionService for persistent, managed session state (replacing
+    local InMemorySessionService).
+  local_vs_cloud:
+    - factor: Access
+      local: http://localhost:8000 (your machine only)
+      cloud: Public HTTPS URL (globally accessible)
+    - factor: Availability
+      local: Only while Terminal is running
+      cloud: 24/7 automatic
+    - factor: Session state
+      local: InMemorySessionService (lost on restart)
+      cloud: VertexAiSessionService (persistent)
+    - factor: Use case
+      local: Development and testing (adk web)
+      cloud: Production, team sharing, integrations
+  platforms:
+    - id: agent_engine
+      name: Vertex AI Agent Engine
+      tagline: Fully managed, ADK-native — simplest path for Python agents
+      languages: Python only
+      session_service: VertexAiSessionService (automatic)
+      command: >-
+        adk deploy agent-engine --project=PROJECT --region=us-central1
+        --staging_bucket=gs://BUCKET --display_name="My Agent" /path/to/agent
+      best_for:
+        - Standard ADK Python agents
+        - Simplest one-command deployment
+        - Automatic session and memory services
+        - No Docker knowledge required
+    - id: cloud_run
+      name: Cloud Run
+      tagline: Serverless containers — flexible, multi-language
+      languages: Python, Go, Java
+      session_service: Manual configuration (or Agent Engine instance for Memory Bank)
+      command: >-
+        adk deploy cloud_run --project=PROJECT --region=us-central1
+        --service_name=my-agent --with_ui /path/to/agent
+      best_for:
+        - Multi-language agents (Go, Java)
+        - Deploy web UI with agent (--with_ui)
+        - Custom container dependencies
+        - Fine-grained scaling control
+  comparison:
+    - factor: Ease of use
+      agent_engine: Easiest (ADK-native, one command)
+      cloud_run: Moderate (container concepts)
+    - factor: Languages
+      agent_engine: Python only
+      cloud_run: Python, Go, Java
+    - factor: Session service
+      agent_engine: VertexAiSessionService (automatic)
+      cloud_run: Manual setup
+    - factor: Web UI
+      agent_engine: Cloud Console only
+      cloud_run: Can bundle UI (--with_ui)
+    - factor: Docker knowledge
+      agent_engine: Not needed
+      cloud_run: Basic understanding helpful
+  prerequisites:
+    - Google Cloud project with billing enabled
+    - gcloud CLI authenticated (gcloud auth login)
+    - Vertex AI API enabled (gcloud services enable aiplatform.googleapis.com)
+    - Cloud Run API enabled (gcloud services enable run.googleapis.com)
+    - pip install 'google-cloud-aiplatform[adk,agent_engines]>=1.111'
+  recommendation: >-
+    Start with Agent Engine for standard ADK Python agents. Use Cloud Run when
+    you need multi-language support, --with_ui, or custom containers.
+  demo: weather_agent
+
+memory_bank:
+  title: Memory Bank — cross-session memory
+  reference: https://google.github.io/adk-docs/sessions/memory/
+  intro: >-
+    While session state tracks one conversation, Memory Bank is long-term
+    knowledge the agent can recall across all past chats. It answers:
+    "What have I learned ACROSS ALL conversations?"
+  session_vs_memory:
+    session: "What's happening THIS conversation?"
+    memory_bank: "What have I learned ACROSS ALL conversations?"
+  lifecycle:
+    - User interacts with agent
+    - Conversation saved to Memory Bank (automatic via after_agent_callback)
+    - LLM extracts meaningful information — preferences, interests, facts (not raw logs)
+    - Later conversation — agent uses load_memory to search past memories
+    - Agent responds with historical context
+  features:
+    - name: LLM-powered extraction
+      description: >-
+        Intelligently extracts and consolidates facts from conversations — not
+        raw transcript storage.
+    - name: Semantic search
+      description: >-
+        Understands intent when retrieving memories — not just keyword matching.
+    - name: Managed service
+      description: >-
+        VertexAiMemoryBankService on GCP — no infrastructure setup; connects via
+        Agent Engine (agentengine://AGENT_ENGINE_ID).
+  local_vs_production:
+    local_service: InMemoryMemoryService
+    local_use: Prototyping and learning the memory API locally
+    production_service: VertexAiMemoryBankService
+    production_use: Production cross-session memory with extraction and semantic search
+  pattern:
+    save: after_agent_callback → callback_context.add_session_to_memory()
+    recall: load_memory tool (or preload_memory for automatic preload each turn)
+  production_config: >-
+    adk web path/to/agents --memory_service_uri="agentengine://AGENT_ENGINE_ID"
+  demo: memory_bank
+
 state_namespaces:
   track: foundational
   namespaces:
@@ -226,6 +872,11 @@ env_templates:
   vertexai:
     GOOGLE_GENAI_USE_VERTEXAI: "0"
     GOOGLE_API_KEY: your-google-api-key-here
+  gcp_deploy:
+    GOOGLE_CLOUD_PROJECT: your-project-id
+    GOOGLE_CLOUD_LOCATION: us-central1
+    GOOGLE_API_KEY: your-google-api-key-here
+    REASONING_ENGINE_RESOURCE: projects/PROJECT/locations/us-central1/reasoningEngines/ID
 
 gitignore_lines:
   - .env

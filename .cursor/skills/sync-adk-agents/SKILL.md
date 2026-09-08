@@ -50,6 +50,8 @@ This reads `agents.yaml` and updates:
       - Bullet 2
     run: adk run foundational.my_new_agent
     env_template: enterprise   # or vertexai
+    try_queries:
+      - "Sample question to test this agent"
 ```
 
 5. Run `python scripts/sync_adk_agent_docs.py`

@@ -95,17 +95,31 @@ def render_track_courses(tracks: dict) -> list[str]:
         "|-------|------|-------|",
     ]
     for track in tracks.values():
-        link = f"[{track['title']}]({track['path_url']})"
+        path_url = track.get("path_url")
+        if path_url:
+            link = f"[{track['title']}]({path_url})"
+        else:
+            link = track["title"]
         lines.append(
             f"| `{track['dir']}/` — {track['label']} | {link} | {track['summary']} |"
         )
     lines.append("")
 
     for track in tracks.values():
-        lines.append(
-            f"- **{track['label']}** (`{track['dir']}/`): "
-            f"[Path {track['path_id']}]({track['path_url']})"
-        )
+        path_id = track.get("path_id")
+        path_url = track.get("path_url")
+        if path_id and path_url:
+            lines.append(
+                f"- **{track['label']}** (`{track['dir']}/`): "
+                f"[Path {path_id}]({path_url})"
+            )
+        elif path_url:
+            lines.append(
+                f"- **{track['label']}** (`{track['dir']}/`): "
+                f"[{track['title']}]({path_url})"
+            )
+        else:
+            lines.append(f"- **{track['label']}** (`{track['dir']}/`)")
         badge_name = track.get("badge_name")
         badge_url = track.get("badge_url")
         if badge_name and badge_url:
@@ -197,21 +211,597 @@ def render_foundational_reference(manifest: dict) -> list[str]:
             lines.append(f"| `{conn['name']}` | {conn['use']} |")
         lines.append("")
 
+    memory = manifest.get("memory_bank")
+    if memory:
+        lines.extend(render_memory_bank_docs(memory))
+
+    return lines
+
+
+def render_memory_bank_docs(memory: dict) -> list[str]:
+    lines = [
+        f"### {memory['title']}",
+        "",
+        memory["intro"],
+        "",
+        "| | Session state | Memory Bank |",
+        "|---|---------------|-------------|",
+        f"| Question | {memory['session_vs_memory']['session']} | "
+        f"{memory['session_vs_memory']['memory_bank']} |",
+        "",
+        "**Lifecycle (conceptual):**",
+        "",
+    ]
+    for i, step in enumerate(memory.get("lifecycle", []), 1):
+        lines.append(f"{i}. {step}")
+    lines.extend(["", "**Key features:**", ""])
+    for feat in memory.get("features", []):
+        lines.append(f"- **{feat['name']}** — {feat['description']}")
+
+    local = memory.get("local_vs_production", {})
+    if local:
+        lines.extend(
+            [
+                "",
+                "**Local vs production:**",
+                "",
+                f"| | {local.get('local_service', 'Local')} | "
+                f"{local.get('production_service', 'Production')} |",
+                "|---|-------|------------|",
+                f"| Use | {local.get('local_use', '')} | "
+                f"{local.get('production_use', '')} |",
+            ]
+        )
+
+    pattern = memory.get("pattern", {})
+    if pattern:
+        lines.extend(
+            [
+                "",
+                f"- **Save:** `{pattern.get('save', '')}`",
+                f"- **Recall:** `{pattern.get('recall', '')}`",
+            ]
+        )
+
+    prod_cfg = memory.get("production_config")
+    if prod_cfg:
+        lines.extend(["", "**Production config:**", "", f"```bash\n{prod_cfg}\n```"])
+
+    demo = memory.get("demo")
+    if demo:
+        lines.append(f"\nDemo: `foundational/{demo}/`")
+
+    ref = memory.get("reference")
+    if ref:
+        lines.append(f"[ADK memory docs]({ref})")
+    lines.append("")
+    return lines
+
+
+def render_multi_agent_reference(manifest: dict) -> list[str]:
+    workflow = manifest.get("workflow_agents")
+    if not workflow:
+        return []
+
+    lines = [
+        "### Multi-agent patterns",
+        "",
+        "**Coordinator** (`sub_agents` on `LlmAgent`) — LLM decides which specialist "
+        "handles each request. See `customer_service/`.",
+        "",
+        "### Workflow agents (deterministic)",
+        "",
+        workflow["intro"],
+        "",
+        "**Use cases:**",
+    ]
+    for item in workflow["use_cases"]:
+        lines.append(f"- {item}")
+    lines.append("")
+    lines.extend(
+        [
+            "| Type | Pattern | Use when | Demo |",
+            "|------|---------|----------|------|",
+        ]
+    )
+    for wf in workflow["types"]:
+        demo = wf.get("demo", "")
+        demo_link = f"`multi_agent/{demo}/`" if demo else "—"
+        lines.append(
+            f"| `{wf['name']}` | {wf['pattern']} | {wf['use_when']} | {demo_link} |"
+        )
+    lines.append("")
+
+    for wf in workflow["types"]:
+        lines.extend(
+            [
+                f"#### {wf['name']} (`{wf['pattern']}`)",
+                "",
+                f"{wf['use_when']}.",
+                "",
+            ]
+        )
+        for key in wf.get("keys", []):
+            lines.append(f"- {key}")
+        ref = wf.get("reference")
+        if ref:
+            lines.append(f"- [ADK docs]({ref})")
+        lines.append("")
+
+    guide = manifest.get("workflow_decision_guide")
+    if guide:
+        lines.extend(
+            [
+                f"### {guide['title']}",
+                "",
+                "| Situation | Use this | Why |",
+                "|-----------|----------|-----|",
+            ]
+        )
+        for row in guide.get("rows", []):
+            lines.append(
+                f"| {row['situation']} | `{row['agent']}` | {row['why']} |"
+            )
+        coord = guide.get("parallel_coordination", {})
+        if coord:
+            lines.extend(
+                [
+                    "",
+                    f"#### {coord['title']}",
+                    "",
+                ]
+            )
+            for rule in coord.get("rules", []):
+                lines.append(f"- {rule}")
+            demo = coord.get("demo")
+            pattern = coord.get("pattern", "")
+            if demo:
+                lines.append(
+                    f"- Demo: `multi_agent/{demo}/` — `{pattern}`"
+                )
+            ref = guide.get("reference")
+            if ref:
+                lines.append(f"- [ADK workflow agents docs]({ref})")
+        lines.append("")
+
+    comm = manifest.get("agent_communication")
+    if comm:
+        lines.extend(
+            [
+                "### Agent communication (shared state)",
+                "",
+                comm["intro"],
+                "",
+                f"**Primary pattern:** {comm['primary_pattern']['write']}; "
+                f"{comm['primary_pattern']['read']}.",
+                "",
+                f"**Data flow:** {comm['flow']}.",
+                "",
+                "| Pattern | Use when | Demo |",
+                "|---------|----------|------|",
+            ]
+        )
+        for pattern in comm["patterns"]:
+            demo = pattern.get("demo", "")
+            if demo.startswith("foundational/"):
+                demo_link = f"`{demo}/`"
+            elif demo:
+                demo_link = f"`multi_agent/{demo}/`"
+            else:
+                demo_link = "—"
+            lines.append(
+                f"| `{pattern['name']}` | {pattern['use_when']} | {demo_link} |"
+            )
+        ref = comm.get("reference")
+        if ref:
+            lines.append("")
+            lines.append(f"[ADK docs — multi-agent communication]({ref})")
+        lines.append("")
+
+    capstone = manifest.get("customer_service_app_multi_agent")
+    if capstone:
+        lines.extend(render_customer_service_app_docs(capstone))
+
+    ns_workflow = manifest.get("state_namespaces_workflow")
+    if ns_workflow:
+        lines.extend(render_state_namespaces_workflow_docs(ns_workflow))
+
+    custom = manifest.get("custom_agents")
+    if custom:
+        lines.extend(render_custom_agents_docs(custom))
+
+    a2a = manifest.get("a2a_protocol")
+    if a2a:
+        lines.extend(render_a2a_docs(a2a))
+
+    return lines
+
+
+def render_a2a_docs(a2a: dict) -> list[str]:
+    lines = [
+        f"### {a2a['title']}",
+        "",
+        a2a["intro"],
+        "",
+        "**Core concepts:**",
+        "",
+        "| Concept | What it means |",
+        "|---------|---------------|",
+    ]
+    for concept in a2a.get("concepts", []):
+        lines.append(f"| **{concept['name']}** | {concept['description']} |")
+    lines.extend(
+        [
+            "",
+            "**When to use A2A:**",
+        ]
+    )
+    for item in a2a.get("when_to_use", []):
+        lines.append(f"- {item}")
+    lines.extend(["", "**When you do NOT need A2A:**"])
+    for item in a2a.get("when_not_to_use", []):
+        lines.append(f"- {item}")
+
+    arch = a2a.get("architecture", {})
+    if arch:
+        lines.extend(
+            [
+                "",
+                "**Two-agent architecture (this repo):**",
+                "",
+                "```text",
+                "┌─────────────────────────┐     A2A HTTP      ┌──────────────────────────────┐",
+                "│  research_coordinator   │ ────────────────▶ │  research_specialist         │",
+                "│  (local — adk run)      │   agent card +    │  (remote — uvicorn :8001)    │",
+                "│  RemoteA2aAgent         │   protocol        │  to_a2a(root_agent)          │",
+                "└─────────────────────────┘                   └──────────────────────────────┘",
+                "```",
+                "",
+                f"- **Local:** {arch.get('local', '')}",
+                f"- **Remote:** {arch.get('remote', '')}",
+                f"- **Flow:** {arch.get('flow', '')}",
+            ]
+        )
+
+    install = a2a.get("install")
+    demo = a2a.get("demo")
+    card_path = a2a.get("agent_card_path", "/.well-known/agent-card.json")
+    port_note = a2a.get("port_note")
+    if install or demo:
+        lines.extend(["", "**Run the demo:**", ""])
+        if install:
+            lines.append(f"```bash\n{install}\n```")
+            lines.append("")
+        if demo:
+            lines.append(f"Demo folder: `multi_agent/{demo}/`")
+            lines.append("")
+            lines.append("```bash")
+            lines.append(
+                f"uvicorn multi_agent.{demo}.remote_research_specialist.agent:a2a_app "
+                "--host localhost --port 8001"
+            )
+            lines.append(f"adk run multi_agent/{demo}")
+            lines.append("```")
+            lines.append("")
+        lines.append(
+            f"Verify the remote agent card: `http://localhost:8001{card_path}`"
+        )
+        if port_note:
+            lines.append(f"- {port_note}")
+
+    refs = [
+        ("A2A protocol", a2a.get("official_site")),
+        ("ADK A2A overview", a2a.get("adk_docs")),
+        ("Exposing an agent", a2a.get("exposing_docs")),
+        ("Consuming a remote agent", a2a.get("consuming_docs")),
+    ]
+    link_lines = [f"- [{label}]({url})" for label, url in refs if url]
+    if link_lines:
+        lines.extend(["", "**References:**", ""])
+        lines.extend(link_lines)
+    lines.append("")
+    return lines
+
+
+def render_custom_agents_docs(custom: dict) -> list[str]:
+    lines = [
+        f"### {custom['title']}",
+        "",
+        custom["rule_of_thumb"],
+        "",
+        "**Rare scenarios requiring custom logic:**",
+        "",
+    ]
+    for item in custom.get("when_needed", []):
+        lines.append(f"- **{item['name']}** — `{item['example']}`")
+        lines.append(f"  - {item['why']}")
+    lines.extend(["", "**Decision framework:**", ""])
+    for step in custom.get("decision_framework", []):
+        if "question" in step:
+            lines.append(f"1. {step['question']}")
+            if step.get("yes"):
+                lines.append(f"   - YES → {step['yes']}")
+            if step.get("no"):
+                lines.append(f"   - NO → {step['no']}")
+            if step.get("simple"):
+                lines.append(f"   - Simple if/else → {step['simple']}")
+            if step.get("complex"):
+                lines.append(f"   - Complex logic → {step['complex']}")
+    lines.extend(
+        [
+            "",
+            "**Trade-offs:**",
+            "",
+            "| Factor | Workflow agents | Custom agents |",
+            "|--------|-----------------|---------------|",
+        ]
+    )
+    for row in custom.get("tradeoffs", []):
+        lines.append(
+            f"| {row['factor']} | {row['workflow']} | {row['custom']} |"
+        )
+    preview = custom.get("preview_pattern")
+    demo = custom.get("demo")
+    if preview:
+        lines.extend(["", f"**Preview pattern:** {preview}"])
+    if demo:
+        lines.append(f"Demo: `multi_agent/{demo}/`")
+    ref = custom.get("reference")
+    if ref:
+        lines.append(f"[ADK custom agents docs]({ref})")
+    lines.append("")
+    lines.extend(
+        [
+            "```python",
+            "class ConditionalRouter(BaseAgent):",
+            '    async def _run_async_impl(self, ctx):',
+            "        request_type = ctx.session.state.get('request_type')",
+            "        if request_type == 'billing':",
+            "            async for event in self.find_sub_agent('billing').run_async(ctx):",
+            "                yield event",
+            "        else:",
+            "            async for event in self.find_sub_agent('general').run_async(ctx):",
+            "                yield event",
+            "```",
+            "",
+        ]
+    )
+    return lines
+
+
+def render_state_namespaces_workflow_docs(ns: dict) -> list[str]:
+    lines = [
+        f"### {ns['title']}",
+        "",
+        ns["intro"],
+        "",
+        "| Namespace | Workflow use | Examples |",
+        "|-----------|--------------|----------|",
+    ]
+    for row in ns.get("namespaces", []):
+        prefix = row["prefix"]
+        examples = ", ".join(f"`{e}`" for e in row.get("examples", []))
+        lines.append(
+            f"| {prefix} | {row['workflow_use']} | {examples} |"
+        )
+    lines.extend(["", "**Parallel state coordination:**", ""])
+    for rule in ns.get("parallel_rules", []):
+        lines.append(f"- {rule}")
+    demo = ns.get("demo")
+    if demo:
+        lines.append(f"- Demo: `multi_agent/{demo}/`")
+    ref = ns.get("reference")
+    if ref:
+        lines.append(f"- [ADK state docs]({ref})")
+    lines.extend(["", "**Test scenarios:**", ""])
+    for scenario in ns.get("test_scenarios", []):
+        lines.append(f"#### {scenario['name']}")
+        lines.append("")
+        lines.append("**You:**")
+        lines.append("")
+        for line in scenario["query"].strip().splitlines():
+            lines.append(f"> {line.strip()}")
+        lines.append("")
+        lines.append("**Expected:**")
+        for i, step in enumerate(scenario.get("expected", []), 1):
+            lines.append(f"{i}. {step}")
+        lines.append("")
+    return lines
+
+
+def render_deployment_docs(deploy: dict) -> list[str]:
+    lines = [
+        f"### {deploy['title']}",
+        "",
+        deploy["intro"],
+        "",
+        "**Local vs cloud:**",
+        "",
+        "| Factor | Local (`adk web`) | Cloud (Agent Engine / Cloud Run) |",
+        "|--------|-------------------|----------------------------------|",
+    ]
+    for row in deploy.get("local_vs_cloud", []):
+        lines.append(f"| {row['factor']} | {row['local']} | {row['cloud']} |")
+
+    lines.extend(["", "**Deploy commands:**", ""])
+    for platform in deploy.get("platforms", []):
+        lines.extend(
+            [
+                f"#### {platform['name']}",
+                "",
+                platform.get("tagline", ""),
+                "",
+                f"- **Languages:** {platform.get('languages', '')}",
+                f"- **Session:** {platform.get('session_service', '')}",
+                "",
+                "```bash",
+                platform.get("command", ""),
+                "```",
+                "",
+                "**Best for:**",
+            ]
+        )
+        for item in platform.get("best_for", []):
+            lines.append(f"- {item}")
+        lines.append("")
+
+    lines.extend(
+        [
+            "**Comparison:**",
+            "",
+            "| Factor | Agent Engine | Cloud Run |",
+            "|--------|--------------|-----------|",
+        ]
+    )
+    for row in deploy.get("comparison", []):
+        lines.append(
+            f"| {row['factor']} | {row['agent_engine']} | {row['cloud_run']} |"
+        )
+
+    rec = deploy.get("recommendation")
+    if rec:
+        lines.extend(["", f"**Recommendation:** {rec}"])
+
+    prereqs = deploy.get("prerequisites", [])
+    if prereqs:
+        lines.extend(["", "**Prerequisites:**", ""])
+        for item in prereqs:
+            lines.append(f"- {item}")
+
+    demo = deploy.get("demo")
+    if demo:
+        lines.extend(
+            [
+                "",
+                f"**Hands-on:** `deployment/{demo}/` — see steps in Hands-on below.",
+            ]
+        )
+
+    refs = [
+        ("ADK deployment overview", deploy.get("adk_docs")),
+        ("Agent Engine", deploy.get("agent_engine_docs")),
+        ("Cloud Run", deploy.get("cloud_run_docs")),
+    ]
+    link_lines = [f"- [{label}]({url})" for label, url in refs if url]
+    if link_lines:
+        lines.extend(["", "**References:**", ""])
+        lines.extend(link_lines)
+    lines.append("")
+    return lines
+
+
+def render_customer_service_app_docs(capstone: dict) -> list[str]:
+    lines = [
+        f"### Capstone: {capstone['title']}",
+        "",
+        capstone["description"],
+        "",
+        "**Build steps:**",
+    ]
+    for step in capstone.get("steps", []):
+        status = "done" if step.get("status") == "implemented" else "todo"
+        lines.append(f"{step['id']}. `{step['name']}` — {step['note']} (`{status}`)")
+    lines.extend(
+        [
+            "",
+            "```mermaid",
+            "flowchart TB",
+            "    USER[User Request] --> INTAKE[intake]",
+            '    INTAKE -->|"ticket_info"| PARALLEL',
+            "    subgraph PARALLEL[Parallel specialists]",
+            "        BILLING[billing_researcher]",
+            "        TECH[technical_researcher]",
+            "    end",
+            '    BILLING -->|"billing_findings"| RESPONDER[responder]',
+            '    TECH -->|"technical_findings"| RESPONDER',
+            "    RESPONDER --> OUTPUT[Final Response]",
+            "```",
+            "",
+            "**State communication:**",
+            "",
+            "| Agent | Role | Writes to state | Reads from state |",
+            "|-------|------|-----------------|------------------|",
+        ]
+    )
+    for row in capstone.get("state_agents", []):
+        writes = f"`{row['output_key']}`" if row.get("output_key") else "—"
+        lines.append(
+            f"| `{row['agent']}` | {row['role']} | {writes} | {row['reads']} |"
+        )
+    folder = capstone.get("folder", "customer_service_app_multi_agent")
+    lines.extend(
+        [
+            "",
+            f"Folder: `multi_agent/{folder}/` — "
+            f"`adk run multi_agent.{folder}`",
+            "",
+            "**Test scenarios:**",
+            "",
+        ]
+    )
+    for scenario in capstone.get("test_scenarios", []):
+        lines.append(f"#### {scenario['name']}")
+        lines.append("")
+        lines.append("**You:**")
+        lines.append("")
+        for line in scenario["query"].strip().splitlines():
+            lines.append(f"> {line.strip()}")
+        lines.append("")
+        lines.append("**Expected flow:**")
+        for i, step in enumerate(scenario.get("expected", []), 1):
+            lines.append(f"{i}. {step}")
+        lines.append("")
     return lines
 
 
 def render_agent_entry(agent: dict, tracks: dict) -> list[str]:
     rel_path = agent_path(agent, tracks)
     adk_name = adk_agent_name(agent, tracks)
+    run_cmd = agent.get("run", f"adk run {adk_name}")
+    deploy_only = agent.get("deploy_only", False)
+
     lines = [
         f"#### `{rel_path}` — {agent['topic']}",
         "",
         f"- **Module:** {agent['module']}",
         f"- **Agent name:** `{agent['name']}`",
         f"- **ADK name:** `{adk_name}`",
-        f"- **Run:** `{agent['run']}`",
-        "- **What we learned:**",
     ]
+
+    if deploy_only:
+        lines.append("- **How to deploy:**")
+        lines.append(f"  - Test locally: `adk run {rel_path}`")
+    else:
+        lines.extend(
+            [
+                "- **How to run:**",
+                f"  - `adk run {rel_path}`",
+            ]
+        )
+
+    if run_cmd.startswith("python"):
+        lines.append(f"  - `{run_cmd}` (programmatic test)")
+    elif not deploy_only and run_cmd != f"adk run {adk_name}" and run_cmd != f"adk run {rel_path}":
+        lines.append(f"  - `{run_cmd}`")
+
+    install_extra = agent.get("install_extra")
+    if install_extra:
+        lines.append(f"  - Prerequisite: `{install_extra}`")
+
+    run_steps = agent.get("run_steps")
+    if run_steps:
+        for step in run_steps:
+            label = step.get("label", "Step")
+            command = step.get("command", "")
+            lines.append(f"  - **{label}:** `{command}`")
+
+    try_queries = agent.get("try_queries")
+    if try_queries:
+        lines.append("- **Try asking:**")
+        for query in try_queries:
+            lines.append(f'  - "{query}"')
+
+    lines.append("- **What we learned:**")
     for item in agent["learned"]:
         lines.append(f"  - {item}")
     lines.append("")
@@ -242,6 +832,8 @@ def render_readme(manifest: dict) -> str:
             "source .venv/bin/activate",
             "pip install google-adk python-dotenv pyyaml",
             "pip install 'mcp>=1.0,<2'  # MCP tools (foundational/file_reader_mcp)",
+            "pip install 'google-adk[a2a]'  # A2A protocol (multi_agent/a2a_demo)",
+            "pip install 'google-cloud-aiplatform[adk,agent_engines]>=1.111'  # deployment/",
             "",
             "# Per agent:",
             "cp <track>/<agent_folder>/.env.example <track>/<agent_folder>/.env",
@@ -263,8 +855,13 @@ def render_readme(manifest: dict) -> str:
             "│   ├── simple_agent_module1/",
             "│   ├── geography_assistant/",
             "│   └── ...",
-            "└── multi_agent/               # Path 3877 — multi-agent",
-            "    └── (agents added as you learn)",
+            "├── multi_agent/               # Path 3877 — multi-agent",
+            "│   ├── customer_service/",
+            "│   ├── sequential_pipeline/",
+            "│   ├── ...",
+            "│   └── customer_service_app_multi_agent/  # capstone",
+            "└── deployment/                # GCP deploy (Agent Engine, Cloud Run)",
+            "    └── weather_agent/           # hands-on deploy",
             "```",
             "",
             "Sync docs after adding agents:",
@@ -285,21 +882,56 @@ def render_readme(manifest: dict) -> str:
         track_agents = agents_by_track.get(track_id, [])
         lines.append(f"## {track['label']} (`{track['dir']}/`)")
         lines.append("")
-        lines.append(
-            f"[Path {track['path_id']}]({track['path_url']}) — {track['summary']}"
-        )
+        path_id = track.get("path_id")
+        path_url = track.get("path_url")
+        if path_id and path_url:
+            lines.append(
+                f"[Path {path_id}]({path_url}) — {track['summary']}"
+            )
+        elif path_url:
+            lines.append(
+                f"[{track['title']}]({path_url}) — {track['summary']}"
+            )
+        else:
+            lines.append(track["summary"])
         lines.append("")
 
         if track_id == "foundational":
             lines.extend(render_foundational_reference(manifest))
 
+        if track_id == "multi_agent":
+            lines.extend(render_multi_agent_reference(manifest))
+
+        if track_id == "deployment":
+            deploy = manifest.get("deployment")
+            if deploy:
+                lines.extend(render_deployment_docs(deploy))
+
         if track_agents:
-            lines.append("### Agents")
+            section_title = "Hands-on" if track_id == "deployment" else "Agents"
+            lines.append(f"### {section_title}")
+            lines.append("")
+            if track_id == "deployment":
+                lines.append(
+                    "Deploy to Google Cloud — prerequisites and commands in the section above. "
+                    "Per-agent deploy steps below."
+                )
+            else:
+                lines.append(
+                    "Browse every agent in the web UI from the repo root: `adk web .` "
+                    f"(select e.g. `{track['dir']}.<agent_folder>`). "
+                    "Per-agent commands below."
+                )
             lines.append("")
             for agent in track_agents:
                 lines.extend(render_agent_entry(agent, tracks))
         else:
-            lines.append("_No agents yet — add folders under `multi_agent/` as you progress._")
+            empty_msg = (
+                "_No agents yet — add folders under `deployment/` as you progress._"
+                if track_id == "deployment"
+                else "_No agents yet — add folders under `multi_agent/` as you progress._"
+            )
+            lines.append(empty_msg)
             lines.append("")
 
     lines.extend(

@@ -418,6 +418,72 @@ def render_multi_agent_reference(manifest: dict) -> list[str]:
     if a2a:
         lines.extend(render_a2a_docs(a2a))
 
+    agent_tool = manifest.get("agent_as_tool")
+    if agent_tool:
+        lines.extend(render_agent_as_tool_docs(agent_tool))
+
+    return lines
+
+
+def render_agent_as_tool_docs(block: dict) -> list[str]:
+    lines = [
+        f"### {block['title']}",
+        "",
+        block.get("intro", ""),
+        "",
+        "| Pattern | Control | Use when | Demo |",
+        "|---------|---------|----------|------|",
+    ]
+    for row in block.get("comparison", []):
+        demo = row.get("demo", "")
+        if demo.startswith("foundational/"):
+            demo_link = f"`{demo}/`"
+        elif demo:
+            demo_link = f"`multi_agent/{demo}/`" if "/" not in demo else f"`{demo}`"
+        else:
+            demo_link = "—"
+        lines.append(
+            f"| `{row['pattern']}` | {row['control']} | {row['use_when']} | {demo_link} |"
+        )
+
+    before = block.get("before_structure")
+    after = block.get("after_structure")
+    if before and after:
+        lines.extend(
+            [
+                "",
+                "**Before (both as sub_agents):**",
+                "",
+                "```text",
+                before.rstrip(),
+                "```",
+                "",
+                "**After (search as AgentTool):**",
+                "",
+                "```text",
+                after.rstrip(),
+                "```",
+            ]
+        )
+
+    steps = block.get("migration_steps", [])
+    if steps:
+        lines.extend(["", "**Migration:**", ""])
+        for i, step in enumerate(steps, 1):
+            lines.append(f"{i}. {step}")
+
+    code = block.get("code_example")
+    if code:
+        lines.extend(["", "**Code pattern:**", "", "```python", code.rstrip(), "```"])
+
+    skip = block.get("skip_summarization")
+    if skip:
+        lines.extend(["", f"**skip_summarization:** {skip}"])
+
+    ref = block.get("reference")
+    if ref:
+        lines.append(f"\n[ADK multi-agent docs]({ref})")
+    lines.append("")
     return lines
 
 
@@ -562,6 +628,64 @@ def render_a2a_docs(a2a: dict) -> list[str]:
 
         for note in cloud.get("deploy_notes", []):
             lines.append(f"- {note}")
+        lines.append("")
+
+    client = a2a.get("a2a_client")
+    if client:
+        lines.extend(
+            [
+                f"#### {client['title']}",
+                "",
+                client.get("intro", ""),
+                "",
+                "**Agent card sources:**",
+                "",
+                "| Source | Example | Use when |",
+                "|--------|---------|----------|",
+            ]
+        )
+        for row in client.get("agent_card_sources", []):
+            lines.append(
+                f"| {row['source']} | `{row['example']}` | {row['use_when']} |"
+            )
+
+        local_ex = client.get("local_file_example")
+        if local_ex:
+            lines.extend(
+                [
+                    "",
+                    "**Client — local agent card file:**",
+                    "",
+                    "```python",
+                    local_ex.rstrip(),
+                    "```",
+                ]
+            )
+
+        url_ex = client.get("url_example")
+        if url_ex:
+            lines.extend(
+                [
+                    "",
+                    "**Client — agent card URL (this repo demo):**",
+                    "",
+                    "```python",
+                    url_ex.rstrip(),
+                    "```",
+                ]
+            )
+
+        demo_card = client.get("demo_card")
+        demo_consumer = client.get("demo_consumer")
+        if demo_card or demo_consumer:
+            lines.append("")
+            if demo_card:
+                lines.append(f"Sample card: `{demo_card}`")
+            if demo_consumer:
+                lines.append(f"Consumer demo: `{demo_consumer}`")
+        ref = client.get("reference")
+        if ref:
+            lines.append(f"[ADK consuming docs]({ref})")
         lines.append("")
 
     refs = [

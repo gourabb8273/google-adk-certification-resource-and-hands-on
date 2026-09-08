@@ -69,9 +69,21 @@ adk deploy cloud_run \
 
 Update `agent.json` `url` to your Cloud Run service URL after deploy.
 
-**Try:** *"Research the impact of AI on healthcare"*
+**A2A client** — `RemoteA2aAgent` with local card file or URL:
 
-See the main [README](../README.md) for full A2A docs, agent card fields, and deploy pattern.
+```python
+from google.adk.agents.remote_a2a_agent import RemoteA2aAgent
+
+illustration_agent = RemoteA2aAgent(
+    name="illustration_agent",
+    description="Agent that generates illustrations.",
+    agent_card="illustration-agent-card.json",  # or HTTPS URL
+)
+```
+
+See `illustration-agent-card.json` and `agent.py` for full consume examples.
+
+**Agent as Tool vs sub_agents** — see main README. Use `AgentTool(agent=search_agent)` in `tools` instead of listing the specialist in `sub_agents` when the parent should call it explicitly.
 
 ```bash
 adk web .

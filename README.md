@@ -810,6 +810,55 @@ adk deploy cloud_run \
 - Optional — pass service account and env vars after -- (Cloud Run gcloud flags)
 - Consuming agents point RemoteA2aAgent at the deployed agent card URL
 
+#### A2A client — calling a remote agent with RemoteA2aAgent
+
+On the consume side, create a RemoteA2aAgent pointing at an agent card. The card can be a local JSON file, a URL, or an AgentCard object. Add it to the parent agent's sub_agents so the LLM can delegate over A2A.
+
+**Agent card sources:**
+
+| Source | Example | Use when |
+|--------|---------|----------|
+| Local JSON file | `illustration-agent-card.json` | Card saved locally; url inside points to deployed service |
+| URL | `http://localhost:8001/.well-known/agent-card.json` | Local to_a2a server or known Cloud Run agent card endpoint |
+| Deployed agent.json url field | `https://SERVICE.run.app/a2a/illustration_agent` | After adk deploy cloud_run --a2a |
+
+**Client — local agent card file:**
+
+```python
+from google.adk.agents.remote_a2a_agent import RemoteA2aAgent
+
+illustration_agent = RemoteA2aAgent(
+    name="illustration_agent",
+    description="Agent that generates illustrations.",
+    agent_card="illustration-agent-card.json",
+)
+
+root_agent = LlmAgent(
+    name="coordinator",
+    instruction="Delegate illustration requests to illustration_agent.",
+    sub_agents=[illustration_agent],
+)
+```
+
+**Client — agent card URL (this repo demo):**
+
+```python
+from google.adk.agents.remote_a2a_agent import (
+    AGENT_CARD_WELL_KNOWN_PATH,
+    RemoteA2aAgent,
+)
+
+research_specialist = RemoteA2aAgent(
+    name="research_specialist",
+    description="Remote research expert via A2A.",
+    agent_card=f"http://localhost:8001{AGENT_CARD_WELL_KNOWN_PATH}",
+)
+```
+
+Sample card: `multi_agent/a2a_demo/illustration-agent-card.json`
+Consumer demo: `multi_agent/a2a_demo/agent.py`
+[ADK consuming docs](https://google.github.io/adk-docs/a2a/quickstart-consuming/)
+
 
 **References:**
 
@@ -817,6 +866,59 @@ adk deploy cloud_run \
 - [ADK A2A overview](https://google.github.io/adk-docs/a2a/)
 - [Exposing an agent](https://google.github.io/adk-docs/a2a/quickstart-exposing/)
 - [Consuming a remote agent](https://google.github.io/adk-docs/a2a/quickstart-consuming/)
+
+### Agent as Tool vs sub_agents
+
+You can wire a specialist agent two ways — as a sub_agent (LLM routing) or as an AgentTool (explicit tool call). Use AgentTool when the parent should invoke the specialist on demand, not hand off the full conversation.
+
+| Pattern | Control | Use when | Demo |
+|---------|---------|----------|------|
+| `sub_agents` | LLM decides when to transfer the conversation | Dynamic routing — billing vs technical, greeter → team | `multi_agent/customer_service/` |
+| `AgentTool` | Parent calls specialist like any other tool | Explicit subtask — search, then plan; parent keeps control | `foundational/geography_assistant/` |
+
+**Before (both as sub_agents):**
+
+```text
+root_agent
+ ├── search_agent (sub_agent)
+ │    └── VertexAiSearchTool
+ └── room_planner_agent (sub_agent)
+```
+
+**After (search as AgentTool):**
+
+```text
+root_agent
+ ├── AgentTool(search_agent)  → tool call on demand
+ │    └── VertexAiSearchTool
+ └── room_planner_agent (sub_agent)
+```
+
+**Migration:**
+
+1. Add AgentTool(agent=search_agent, skip_summarization=False) to tools
+2. Remove search_agent from sub_agents — keep only coordinators there
+3. Parent instruction should say when to call the search tool vs delegate
+
+**Code pattern:**
+
+```python
+from google.adk.tools import AgentTool
+
+root_agent = LlmAgent(
+    name="paint_agent",
+    instruction="Use the search tool for product lookup, then plan the room.",
+    sub_agents=[room_planner_agent],
+    tools=[
+        set_session_value,
+        AgentTool(agent=search_agent, skip_summarization=False),
+    ],
+)
+```
+
+**skip_summarization:** False (default) — parent receives summarized specialist output. True — parent gets raw specialist response.
+
+[ADK multi-agent docs](https://google.github.io/adk-docs/agents/multi-agents)
 
 ### Agents
 
@@ -941,6 +1043,8 @@ Browse every agent in the web UI from the repo root: `adk web .` (select e.g. `m
   - Cloud expose — agent.json + adk deploy cloud_run --a2a for production
   - Consume side — RemoteA2aAgent connects using the remote agent card URL
   - Agent card JSON describes name, skills, capabilities, and endpoint url
+  - RemoteA2aAgent client — agent_card can be a local JSON file or URL
+  - AgentTool vs sub_agents — explicit tool call vs LLM conversation transfer
 
 #### `multi_agent/refinement_loop` — LoopAgent — draft → check → improve (repeat)
 
